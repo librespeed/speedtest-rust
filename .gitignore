@@ -1,5 +1,6 @@
 server_config.toml
 test_speedtest.db
-tasks.md
+assets
 .idea
 target
+build_script
