@@ -1,0 +1,28 @@
+# bind socket adress
+bind_address="0.0.0.0"
+# socket listent port, default is 8080
+listen_port=8080
+
+# base api url /{base_url}/routes
+base_url="backend"
+
+# set directory of speedtest web front to server load on `/`. use empty retrun 404
+speed_test_dir="./assets" # Write without suffix separator
+
+# password for logging into statistics page, fill this to enable stats page
+stats_password=""
+
+# Database config for : mysql, postgres, sqlite, or disable by write none
+# if none is specified, no telemetry/stats will be recorded, and no result JPG will be generated
+database_type="sqlite"
+database_hostname="localhost"
+database_name="speedtest_db"
+database_username=""
+database_password=""
+# if you use `sqlite` as database, set database_file to database file location
+database_file="test_speedtest.db"
+
+# TLS feature comming soon
+# enable_tls=false
+# tls_cet_file=""
+# tls_key_file=""
