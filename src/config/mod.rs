@@ -64,12 +64,12 @@ pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
             }
         }
         None => {
-            let config = open_config_file("server_config.toml");
+            let config = open_config_file("configs.toml");
             match config {
                 // open config from current dir
                 Ok(config) => {
                     initialize(config)?;
-                    info!("Configs initialized file : server_config.toml");
+                    info!("Configs initialized file : configs.toml");
                     Ok(())
                 }
                 // set default config

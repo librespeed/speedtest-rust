@@ -149,7 +149,7 @@ const HTML_TEMPLATE : &str = r#"
 <body>
 <h1>LibreSpeed - Stats</h1>
 {% if no_password %}
-		Please set stats_password in server_config.toml to enable access.
+		Please set stats_password in configs.toml to enable access.
 {% elif logged_in %}
 	<form action="stats" method="GET"><input type="hidden" name="op" value="logout" /><input type="submit" value="Logout" /></form>
 	<form action="stats" method="GET">
