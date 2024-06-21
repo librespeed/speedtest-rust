@@ -2,7 +2,6 @@ extern crate core;
 
 use clap::{Arg, Command};
 use log::error;
-use tokio::runtime::{Builder, Runtime};
 use crate::http::http_server::HttpServer;
 
 mod http;
@@ -32,7 +31,7 @@ fn main() -> std::io::Result<()> {
     let database = database::init();
     match database {
         Ok(mut database) => {
-            let runtime = init_runtime();
+            let runtime = config::init_runtime();
             match runtime {
                 Ok(runtime) => {
                     runtime.block_on(async  {
@@ -60,12 +59,4 @@ fn main() -> std::io::Result<()> {
         }
     }
     Ok(())
-}
-
-fn init_runtime () -> std::io::Result<Runtime> {
-    Builder::new_multi_thread()
-        .thread_name("librespeed-rs")
-        .worker_threads(2)
-        .enable_io()
-        .build()
 }

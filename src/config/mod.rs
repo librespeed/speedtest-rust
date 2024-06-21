@@ -6,6 +6,8 @@ use std::sync::OnceLock;
 use ab_glyph::FontRef;
 use log::{info, trace};
 use serde::Deserialize;
+use serde_json::Value;
+use tokio::runtime::{Builder, Runtime};
 
 pub mod time;
 
@@ -13,6 +15,7 @@ pub mod time;
 pub struct ServerConfig {
     pub bind_address : String,
     pub listen_port : i32,
+    pub worker_threads: Value,
     pub base_url : String,
     pub stats_password : String,
     pub speed_test_dir : String,
@@ -29,6 +32,7 @@ impl Default for ServerConfig {
         ServerConfig {
             bind_address: "0.0.0.0".to_string(),
             listen_port: 8080,
+            worker_threads: Value::from(1),
             base_url: "backend".to_string(),
             stats_password: "".to_string(),
             speed_test_dir: "".to_string(),
@@ -39,6 +43,24 @@ impl Default for ServerConfig {
             database_password: None,
             database_file: None,
         }
+    }
+}
+
+pub fn init_runtime () -> std::io::Result<Runtime> {
+    let worker_threads = SERVER_CONFIG.get().unwrap().worker_threads.clone();
+    if worker_threads.is_string() && worker_threads == "auto" {
+        Builder::new_multi_thread()
+            .thread_name("librespeed-rs")
+            .enable_io()
+            .build()
+    } else {
+        let mut worker_threads = worker_threads.as_u64().unwrap_or(1) as usize;
+        if worker_threads == 0 { worker_threads = 1 }
+        Builder::new_multi_thread()
+            .thread_name("librespeed-rs")
+            .worker_threads(worker_threads)
+            .enable_io()
+            .build()
     }
 }
 
