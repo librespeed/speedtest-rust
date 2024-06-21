@@ -73,17 +73,21 @@ Works with mobile versions too.
     # socket listent port, default is 8080
     listen_port=8080
 
+    # you can specify the number of worker threads. default is 1
+    # auto: number of cpu cores, or more than 0 as desired
+    # increasing the count increases memory usage
+    worker_threads=1
+    
     # base api url /{base_url}/routes
     base_url="backend"
 
     # set directory of speedtest web front to server load on `/`. use empty retrun 404
-    # server
-    speed_test_dir="" # Write without suffix separator
+    speed_test_dir="./assets" # Write without suffix separator
 
     # password for logging into statistics page, fill this to enable stats page
     stats_password=""
 
-    # Database config for : mysql, postgres, sqlite, or disable by write none
+    # database config for : mysql, postgres, sqlite, or disable by write none
     # if none is specified, no telemetry/stats will be recorded, and no result JPG will be generated
     database_type="sqlite"
     database_hostname="localhost"
@@ -100,8 +104,8 @@ Works with mobile versions too.
     ```
    
 > #### TODO :
-> - [ ] Impl ipinfo.io for fetch isp info
-> - [ ] Enable some features like TLS, Worker Threads count, Docker & more ...
+> - [ ] Impl ip geolocation & isp finder
+> - [ ] Enable some features like TLS, Docker & more ...
 
 > #### Note : 
 > This project can be much better.\
