@@ -82,22 +82,63 @@ impl Response {
             let file_name = if file_name == "/" { "/index.html" } else { file_name };
             let file_path = format!("{}{}",SERVER_CONFIG.get().unwrap().speed_test_dir,file_name);
             if let Ok(mut file) = File::open(file_path.clone()) {
-                let mut content = String::new();
-                file.read_to_string(&mut content).unwrap();
-                let content_type = if file_path.ends_with(".js") { "text/javascript" } else { "text/html" };
-                let response_header = format!(
-                    "HTTP/1.1 200 OK\r\n\
-                    Content-Type: {}\r\n\
-                    Content-Length: {}\r\n\
-                    Connection: keep-alive\r\n\
-                    Access-Control-Allow-Origin: *\r\n\
-                    Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n{}",
-                    content_type,
-                    content.len(),
-                    content
-                );
+
+                //read file raw content
+                let mut content_raw = Vec::new();
+                file.read_to_end(&mut content_raw).unwrap();
+
+                let content_type = match file_path {
+                    i if i.ends_with(".js") => {
+                        "text/javascript"
+                    }
+                    i if i.ends_with(".html") => {
+                        "text/html"
+                    }
+                    i if i.ends_with(".ico") => {
+                        "image/vnd.microsoft.icon"
+                    }
+                    _ => {
+                        ""
+                    }
+                };
+
+                let data = match content_type {
+                    i if i == "text/javascript" || i == "text/html" => {
+                        let content = String::from_utf8(content_raw).unwrap();
+                        format!(
+                            "HTTP/1.1 200 OK\r\n\
+                            Content-Type: {}\r\n\
+                            Content-Length: {}\r\n\
+                            Connection: keep-alive\r\n\
+                            Access-Control-Allow-Origin: *\r\n\
+                            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n{}",
+                            content_type,
+                            content.len(),
+                            content
+                        ).as_bytes().to_vec()
+                    }
+                    "image/vnd.microsoft.icon" => {
+                        let response_header = format!(
+                            "HTTP/1.1 200 OK\r\n\
+                            Content-Type: {}\r\n\
+                            Content-Length: {}\r\n\
+                            Connection: keep-alive\r\n\
+                            Access-Control-Allow-Origin: *\r\n\
+                            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n",
+                            content_type,
+                            content_raw.len()
+                        );
+                        let mut data = response_header.as_bytes().to_vec();
+                        data.extend(content_raw);
+                        data
+                    }
+                    _ => {
+                        return Self::res_404()
+                    }
+                };
+
                 Response {
-                    data : response_header.as_bytes().to_vec(),
+                    data,
                     chunk_count : 0
                 }
             } else {
