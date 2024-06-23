@@ -4,6 +4,9 @@
 
 No Flash, No Java, No WebSocket, No Bullshit.
 
+## Try it
+[Take a speed test](https://librespeed-rs.ir)
+
 ## Compatibility
 All modern browsers are supported: IE11, latest Edge, latest Chrome, latest Firefox, latest Safari.
 Works with mobile versions too.
