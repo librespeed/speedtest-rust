@@ -16,7 +16,7 @@ impl Response {
             "HTTP/1.1 404 Not Found\r\n\
             Content-Length: {}\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n",
             body.len()
         );
         let mut data = response_header.as_bytes().to_vec();
@@ -30,7 +30,7 @@ impl Response {
             "HTTP/1.1 400 Bad Request\r\n\
             Content-Length: {}\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n",
             body.len()
         );
         let mut data = response_header.as_bytes().to_vec();
@@ -47,7 +47,7 @@ impl Response {
             Cache-Control: post-check=0, pre-check=0\r\n\
             Pragma: no-cache\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type\r\n\r\n",
             img.len()
         );
@@ -68,7 +68,7 @@ impl Response {
             Cache-Control: post-check=0, pre-check=0\r\n\
             Pragma: no-cache\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n".to_string();
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n".to_string();
         Response {
             data : response_header.as_bytes().to_vec(),
             chunk_count
@@ -111,7 +111,7 @@ impl Response {
                             Content-Length: {}\r\n\
                             Connection: keep-alive\r\n\
                             Access-Control-Allow-Origin: *\r\n\
-                            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n{}",
+                            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n{}",
                             content_type,
                             content.len(),
                             content
@@ -124,7 +124,7 @@ impl Response {
                             Content-Length: {}\r\n\
                             Connection: keep-alive\r\n\
                             Access-Control-Allow-Origin: *\r\n\
-                            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n",
+                            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n",
                             content_type,
                             content_raw.len()
                         );
@@ -156,7 +156,7 @@ impl Response {
             Cache-Control: post-check=0, pre-check=0\r\n\
             Pragma: no-cache\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type\r\n\r\n",
             content.len()
         );
@@ -173,7 +173,7 @@ impl Response {
             Cache-Control: post-check=0, pre-check=0\r\n\
             Pragma: no-cache\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type\r\n\r\n{}",
             content.len(),
             content
@@ -187,7 +187,7 @@ impl Response {
             "HTTP/1.1 500 Internal Server Error\r\n\
             Content-Length: {}\r\n\
             Access-Control-Allow-Origin: *\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n",
             body.len()
         );
         let mut data = response_header.as_bytes().to_vec();
@@ -209,7 +209,7 @@ impl Response {
             Access-Control-Allow-Credentials: true\r\n\
             Access-Control-Allow-Origin: *\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type, Authorization\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION, HEAD\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n\r\n",
             cookie_data,
             location
         );
@@ -228,7 +228,7 @@ impl Response {
             Access-Control-Allow-Credentials: true\r\n\
             Access-Control-Allow-Origin: *\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type, Authorization\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION, HEAD\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n\r\n",
             content.len()
         );
         let mut data = response_header.as_bytes().to_vec();
@@ -247,7 +247,7 @@ impl Response {
             Access-Control-Allow-Credentials: true\r\n\
             Access-Control-Allow-Origin: *\r\n\
             Access-Control-Allow-Headers: Content-Encoding, Content-Type, Authorization\r\n\
-            Access-Control-Allow-Methods: GET, POST, OPTION, HEAD\r\n\r\n",
+            Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n\r\n",
             content.len()
         );
         let mut data = response_header.as_bytes().to_vec();
