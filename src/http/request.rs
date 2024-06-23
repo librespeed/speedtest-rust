@@ -184,11 +184,13 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                 }
             }
         };
+        //trust proxy
+        let remote_addr = trust_addr_proxy(&parsed_headers,remote_addr);
         //gen request
         let response = result(Request {
             path: parsed_status.1,
             method: parsed_status.0,
-            remote_addr : remote_addr.to_string(),
+            remote_addr,
             query_params: parsed_status.2,
             headers: parsed_headers,
             form_data : body_form_data.clone().unwrap_or(HashMap::new())
@@ -290,6 +292,14 @@ fn clear_path_end_slash(input: &str) -> &str {
         strip
     } else {
         input
+    }
+}
+
+fn trust_addr_proxy(headers : &HashMap<String,String>,remote_addr : &str) -> String {
+    if let Some(remote_ip) = headers.get("X-Real-IP") {
+        remote_ip.to_string()
+    } else {
+        remote_addr.to_string()
     }
 }
 
