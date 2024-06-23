@@ -39,7 +39,7 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                     match status_line {
                         Some(status_line) => {
                             let status_lower = status_line.to_lowercase();
-                            if status_lower.contains("http/1.") && (status_lower.starts_with("get") || status_lower.starts_with("post")) {
+                            if check_is_status_line(status_lower) {
                                 parse_request_status_line(status_line)
                             } else {
                                 break 'root_loop;
@@ -212,6 +212,11 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
             trace!("Error socket flush : {}",e.to_string())
         }
     }
+}
+
+//allow http 1.* & POST, GET, OPTIONS methods
+fn check_is_status_line (line : String) -> bool {
+    line.contains("http/1.") && (line.starts_with("get") || line.starts_with("options") || line.starts_with("post"))
 }
 
 #[allow(dead_code)]
