@@ -13,7 +13,7 @@ mod config;
 fn main() -> std::io::Result<()> {
     //parse args
     let args = Command::new("librespeed-rs")
-        .version("1.0.0")
+        .version("1.0.1")
         .about("Rust backend for LibreSpeed")
         .arg(Arg::new("server_config_path").short('c').long("config"))
         .get_matches();
