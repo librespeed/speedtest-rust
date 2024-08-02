@@ -100,15 +100,14 @@ Works with mobile versions too.
     # if you use `sqlite` as database, set database_file to database file location
     database_file="speedtest.db"
 
-    # TLS feature comming soon
-    # enable_tls=false
-    # tls_cet_file=""
-    # tls_key_file=""
+    # enable and use TLS option; if enable it, you need to prepare certificates and private keys
+   enable_tls=false
+   tls_cet_file=""
+   tls_key_file=""
     ```
    
 > #### TODO :
 > - [ ] Impl ip geolocation & isp finder
-> - [ ] Enable some features like TLS, Docker & more ...
 
 > #### Note : 
 > This project can be much better.\
