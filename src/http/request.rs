@@ -3,7 +3,6 @@ use std::future::Future;
 use std::pin::Pin;
 use log::trace;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
-use tokio::net::tcp::{ReadHalf, WriteHalf};
 use crate::config::GARBAGE_DATA;
 use crate::http::{Method, MethodStr};
 use crate::http::response::Response;
@@ -26,8 +25,10 @@ enum BodyType {
     FormUrlEncoded
 }
 
-pub async fn handle_socket<F>(remote_addr : &str,buf_reader: &mut BufReader<ReadHalf<'_>>,buf_writer : &mut BufWriter<WriteHalf<'_>>,result : F)
+pub async fn handle_socket<R,W,F>(remote_addr : &str,buf_reader: &mut BufReader<R>,buf_writer : &mut BufWriter<W>,result : F)
     where
+R: AsyncReadExt + Unpin,
+W: AsyncWriteExt + Unpin,
 F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
 {
     'root_loop:loop {

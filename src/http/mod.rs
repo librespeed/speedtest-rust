@@ -7,6 +7,7 @@ mod routes;
 pub mod request;
 pub mod response;
 pub mod cookie;
+mod tls;
 
 #[derive(Debug)]
 pub enum Method {

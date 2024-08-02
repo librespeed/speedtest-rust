@@ -1,0 +1,38 @@
+use std::fs::File;
+use std::io::{BufReader, Error, ErrorKind};
+use std::sync::Arc;
+use log::info;
+use rustls_pemfile::{certs, private_key};
+use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use tokio_rustls::rustls::ServerConfig;
+use tokio_rustls::TlsAcceptor;
+
+/** TLS Configuration */
+pub fn setup_tls(cert_path : &str,key_path : &str) -> std::io::Result<TlsAcceptor> {
+    let certs = load_certs(cert_path)?;
+    let key = load_key(key_path)?;
+    let config = ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .map_err(|err| Error::new(ErrorKind::InvalidInput, err))?;
+    let acceptor = TlsAcceptor::from(Arc::new(config));
+    info!("Server TLS successfully configured");
+    Ok(acceptor)
+}
+
+fn open_file_buf(path : &str,err_msg : &str) -> std::io::Result<File> {
+    if let Ok(file) = File::open(path) {
+        Ok(file)
+    } else {
+        Err(Error::new(ErrorKind::Other,err_msg))
+    }
+}
+
+fn load_certs(path: &str) -> std::io::Result<Vec<CertificateDer<'static>>> {
+    certs(&mut BufReader::new(open_file_buf(path,"Failed to load tls cert file")?)).collect()
+}
+
+fn load_key(path: &str) -> std::io::Result<PrivateKeyDer<'static>> {
+    private_key(&mut BufReader::new(open_file_buf(path,"Failed to load tls key file")?)).unwrap()
+        .ok_or(Error::new(ErrorKind::Other, "Failed to load tls key file".to_string()))
+}

@@ -25,6 +25,9 @@ pub struct ServerConfig {
     pub database_username : Option<String>,
     pub database_password : Option<String>,
     pub database_file : Option<String>,
+    pub enable_tls : bool,
+    pub tls_cet_file : String,
+    pub tls_key_file : String
 }
 
 impl Default for ServerConfig {
@@ -42,6 +45,9 @@ impl Default for ServerConfig {
             database_username: None,
             database_password: None,
             database_file: None,
+            enable_tls: false,
+            tls_cet_file: "".to_string(),
+            tls_key_file: "".to_string(),
         }
     }
 }
