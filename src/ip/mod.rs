@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod ip_info;
+pub mod mmdb;
+pub mod updater;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]

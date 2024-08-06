@@ -1,6 +1,6 @@
 extern crate core;
 
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use log::error;
 use crate::http::http_server::HttpServer;
 
@@ -16,7 +16,16 @@ fn main() -> std::io::Result<()> {
         .version("1.0.1")
         .about("Rust backend for LibreSpeed")
         .arg(Arg::new("server_config_path").short('c').long("config"))
+        .arg(Arg::new("update-ipdb")
+            .long("update-ipdb")
+            .help("Update IPInfo country asn database")
+            .action(ArgAction::SetTrue))
         .get_matches();
+
+    if args.get_flag("update-ipdb") {
+        ip::updater::update_ipdb("https://raw.githubusercontent.com/librespeed/speedtest/master/backend/country_asn.mmdb","country_asn.mmdb");
+        return Ok(())
+    }
 
     //get config path
     let config_path = args.get_one::<String>("server_config_path");
