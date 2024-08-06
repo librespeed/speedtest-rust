@@ -1,10 +1,9 @@
-use std::env;
 use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::sync::OnceLock;
 
 use ab_glyph::FontRef;
-use log::{info, trace};
+use log::{info, LevelFilter, trace};
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
@@ -72,10 +71,7 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
 
 pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
     //init logger
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
-    }
-    env_logger::init();
+    env_logger::builder().filter_level(LevelFilter::Info).init();
     //find server configs
     match config_path {
         Some(config_path) => {

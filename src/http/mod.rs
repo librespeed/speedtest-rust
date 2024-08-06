@@ -30,9 +30,7 @@ impl MethodStr for str {
 }
 
 pub fn simple_parse_url(url: &str) -> (String,String,i32,String) {
-    let mut iter = url.splitn(2, "://");
-    let scheme = iter.next().unwrap();
-    let rest = iter.next().unwrap();
+    let (scheme, rest) = url.split_once("://").unwrap();
     let (host, path) = rest.split_once('/').unwrap();
     let port = if scheme == "https" { 443 } else { 80 };
     (scheme.to_string(),host.to_string(),port,path.to_string())
