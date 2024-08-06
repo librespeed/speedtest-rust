@@ -29,6 +29,15 @@ impl MethodStr for str {
     }
 }
 
+pub fn simple_parse_url(url: &str) -> (String,String,i32,String) {
+    let mut iter = url.splitn(2, "://");
+    let scheme = iter.next().unwrap();
+    let rest = iter.next().unwrap();
+    let (host, path) = rest.split_once('/').unwrap();
+    let port = if scheme == "https" { 443 } else { 80 };
+    (scheme.to_string(),host.to_string(),port,path.to_string())
+}
+
 pub async fn find_remote_ip_addr (conn: &mut TcpStream) -> String {
     let client_addr = conn.peer_addr().unwrap();
     client_addr.ip().to_string().replace("::ffff:","")

@@ -34,58 +34,19 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
     'root_loop:loop {
         //read status line
         let parsed_status = {
-            let status_line = buf_reader.lines().next_line().await;
-            match status_line {
-                Ok(status_line) => {
-                    match status_line {
-                        Some(status_line) => {
-                            let status_lower = status_line.to_lowercase();
-                            if check_is_status_line(status_lower) {
-                                parse_request_status_line(status_line)
-                            } else {
-                                break 'root_loop;
-                            }
-                        }
-                        None => {
-                            break 'root_loop;
-                        }
-                    }
-                }
-                Err(_) => {
+            if let Ok(Some(status_line)) = buf_reader.lines().next_line().await {
+                let status_lower = status_line.to_lowercase();
+                if check_is_status_line(status_lower) {
+                    parse_request_status_line(status_line)
+                } else {
                     break 'root_loop;
                 }
+            } else {
+                break 'root_loop;
             }
         };
         //read headers
-        let parsed_headers = {
-            let mut headers_out = HashMap::new();
-            'header_loop:loop {
-                let header_line = buf_reader.lines().next_line().await;
-                match header_line {
-                    Ok(header_line) => {
-                        match header_line {
-                            Some(header_line) => {
-                                if header_line.is_empty() {
-                                    break 'header_loop;
-                                } else {
-                                    let mut header_parts = header_line.splitn(2, ':');
-                                    if let (Some(header_key),Some(header_val)) = (header_parts.next(),header_parts.next()) {
-                                        headers_out.insert(header_key.trim().to_string(),header_val.trim().to_string());
-                                    }
-                                }
-                            }
-                            None => {
-                                break 'header_loop;
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        break 'header_loop;
-                    }
-                }
-            }
-            headers_out
-        };
+        let parsed_headers = header_parser(buf_reader).await;
         //read body content
         let body_form_data = {
             let (body_type,body_size) = check_has_body(&parsed_headers);
@@ -226,6 +187,28 @@ fn hex_string_to_int(hex_string: &str) -> Option<u64> {
         Ok(parsed_int) => Some(parsed_int),
         Err(_) => None,
     }
+}
+
+pub async fn header_parser<R>(buf_reader: &mut BufReader<R>) -> HashMap<String,String>
+where
+    R: AsyncReadExt + Unpin
+{
+    let mut headers_out = HashMap::new();
+    'header_loop:loop {
+        if let Ok(Some(header_line)) = buf_reader.lines().next_line().await {
+            if header_line.is_empty() {
+                break 'header_loop;
+            } else {
+                let mut header_parts = header_line.splitn(2, ':');
+                if let (Some(header_key),Some(header_val)) = (header_parts.next(),header_parts.next()) {
+                    headers_out.insert(header_key.trim().to_string(),header_val.trim().to_string());
+                }
+            }
+        } else {
+            break 'header_loop;
+        }
+    }
+    headers_out
 }
 
 fn check_has_body(headers : &HashMap<String,String>) -> (Option<BodyType>,Option<u64>) {
