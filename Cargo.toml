@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 #async net
 tokio = {version = "1.39.2", features = ["net","io-util","rt","macros","rt-multi-thread"]}
-tokio-rustls = "0.26.0"
+tokio-rustls = {version = "0.26.0", features = ["logging","tls12","ring"], default-features = false}
 webpki-roots = "0.26.3"
 rustls-pemfile = "2.1.3"
 #ip
