@@ -22,7 +22,7 @@ Works with mobile versions too.
 - Upload
 - Ping
 - Jitter
-- IP Address, ISP, distance from server (optional, not implemented currently)
+- IP Address, ISP
 - Telemetry (optional)
 - Results sharing (optional)
 
@@ -67,7 +67,7 @@ Works with mobile versions too.
    # If you want the server to load the speedtest web front in the route `/`,
      then you must specify the path of the client folder in the configs.toml file.
    ```
-   
+
 4. Change `configs.toml` according to your environment:
 
     ```toml
@@ -105,13 +105,19 @@ Works with mobile versions too.
    tls_cet_file=""
    tls_key_file=""
     ```
-   
-> #### TODO :
-> - [ ] Impl ip geolocation & isp finder
 
-> #### Note : 
-> This project can be much better.\
-> Therefore, your PRs are accepted to improve and solve problems
+## ISP Detection
+
+- This project use offline database for detect ip ISPs
+- Currently, only the ipinfo.io database is supported
+- You can download or update database automatically by typing :
+   ```
+   $ librespeed-rs --update-ipdb
+   ```
+
+## Note :
+This project can be much better.\
+Therefore, your PRs are accepted to improve and solve problems
 
 ## License
 Copyright (C) 2016-2024 Federico Dossena\
