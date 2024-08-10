@@ -1,4 +1,4 @@
-extern crate core;
+#![forbid(unsafe_code)]
 
 use clap::{Arg, ArgAction, Command};
 use log::error;

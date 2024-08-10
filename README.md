@@ -12,7 +12,7 @@ All modern browsers are supported: IE11, latest Edge, latest Chrome, latest Fire
 Works with mobile versions too.
 
 ## Attributes
-- Memory safety
+- Memory safety (uses `#![forbid(unsafe_code)]` to ensure everything is implemented in 100% safe Rust.)
 - Lightweight & Low overhead
 - Low level networking
 - Based on tokio-rs (asynchronous)
