@@ -39,6 +39,9 @@ Works with mobile versions too.
 2. Unzip the archive.
 3. Make changes to the configuration.
 4. Run the binary.
+5. Or setup as service :
+    - Copy `setup_systemd.sh` on linux or `setup_sc_win.bat` on windows system in extracted folder.
+    - Run the script file to setup as service
 
 ### Compile from source
 
@@ -111,6 +114,7 @@ Works with mobile versions too.
 - This project use offline database for detect ip ISPs
 - Currently, only the ipinfo.io database is supported
 - You can download or update database automatically by typing :
+
    ```
    $ librespeed-rs --update-ipdb
    ```
