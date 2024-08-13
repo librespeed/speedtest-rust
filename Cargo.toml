@@ -15,8 +15,8 @@ maxminddb = "0.24.0"
 imageproc = "0.25.0"
 ab_glyph = "0.2.28"
 #serializer
-serde_json = "1.0.122"
-serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.124"
+serde = { version = "1.0.207", features = ["derive"] }
 #databases
 uuid = { version = "1.10.0", features = ["v4"] }
 chrono = "0.4.38"
@@ -24,8 +24,8 @@ mysql = { version = "25.0.1",default-features = false }
 postgres = "0.19.8"
 rusqlite = { version = "0.32.1",features = ["bundled"] }
 #conf
-clap = { version = "4.5.13",features = ["std","color","help","usage"],default-features = false }
-toml = "0.8.17"
+clap = { version = "4.5.15",features = ["std","color","help","usage"],default-features = false }
+toml = "0.8.19"
 #web
 sha2 = "0.10.8"
 tera = { version = "1.20.0",default-features = false }

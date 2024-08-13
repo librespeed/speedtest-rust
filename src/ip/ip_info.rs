@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr};
 use log::warn;
 use serde_json::json;
-use crate::ip::{IPInfo};
+use crate::ip::IPInfo;
 use crate::ip::mmdb::mmdb_reader::MMDBReader;
 use crate::ip::mmdb::mmdb_record::MMDBResult;
 
