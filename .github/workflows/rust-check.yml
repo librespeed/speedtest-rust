@@ -1,0 +1,32 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - 'res/**'
+      - 'src/**'
+      - 'Cargo.toml'
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - 'res/**'
+      - 'src/**'
+      - 'Cargo.toml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Cache cargo registry and build
+      uses: Swatinem/rust-cache@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Run clippy
+      run: cargo clippy --verbose
