@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use std::sync::Arc;
 use log::{info, trace};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter, split};
 use tokio::net::TcpListener;
@@ -8,8 +8,8 @@ use crate::make_route;
 use crate::config::SERVER_CONFIG;
 use crate::database::Database;
 use crate::http::{check_route_for_index_page, find_remote_ip_addr, get_chunk_count};
-use crate::http::request::{handle_socket};
-use crate::http::response::{Response};
+use crate::http::request::handle_socket;
+use crate::http::response::Response;
 
 use crate::http::routes::*;
 use crate::http::tls::setup_tls;

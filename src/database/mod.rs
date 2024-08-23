@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::info;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use crate::config::{SERVER_CONFIG};
+use crate::config::SERVER_CONFIG;
 use crate::database::mysql::MySql;
 use crate::database::none::NoneDB;
 use crate::database::postgres::Postgres;
