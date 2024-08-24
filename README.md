@@ -8,8 +8,12 @@ No Flash, No Java, No WebSocket, No Bullshit.
 [Take a speed test](https://librespeed-rs.ir)
 
 ## Compatibility
-All modern browsers are supported: IE11, latest Edge, latest Chrome, latest Firefox, latest Safari.
-Works with mobile versions too.
+Compatible with all librespeed clients :
+
+- Web Client
+- [Command line client](https://github.com/librespeed/speedtest-cli)
+- [Android client](https://github.com/librespeed/speedtest-android)
+- [desktop client](https://github.com/librespeed/speedtest-desktop)
 
 ## Attributes
 - Memory safety (uses `#![forbid(unsafe_code)]` to ensure everything is implemented in 100% safe Rust.)
