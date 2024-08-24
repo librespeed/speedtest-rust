@@ -1,0 +1,168 @@
+name: Build/Pub Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+
+          # linux
+          - build: linux-64-gnu
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            sys-type: linux
+
+          - build: linux-aarch64-gnu
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            sys-type: linux
+
+          - build: linux-i686-gnu
+            os: ubuntu-20.04
+            target: i686-unknown-linux-gnu
+            sys-type: linux
+
+          - build: linux-armv7-gnueabihf
+            os: ubuntu-20.04
+            target: armv7-unknown-linux-gnueabihf
+            sys-type: linux
+
+          - build: linux-64-musl
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            sys-type: linux
+
+          # win
+          - build: windows
+            os: windows-latest
+            target: i686-pc-windows-msvc
+            sys-type: windows
+
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            sys-type: windows
+
+          # mac
+          - build: mac-os-64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            sys-type: mac
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install linux needed deps
+        if: matrix.sys-type == 'linux'
+        shell: bash
+        run: |
+          if [ "${{ matrix.build }}" = "linux-aarch64-gnu" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          elif [ "${{ matrix.build }}" = "linux-i686-gnu" ]; then
+            sudo apt-get install -y gcc-multilib
+          elif [ "${{ matrix.build }}" = "linux-armv7-gnueabihf" ]; then
+            sudo apt-get install -y gcc-arm-linux-gnueabihf
+          elif [ "${{ matrix.build }}" = "linux-64-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Running cargo build
+        run: cargo build --release --target ${{ matrix.target }}
+
+#      - name: Build
+#        uses: actions-rs/cargo@v1
+#        with:
+#          use-cross: true
+#          command: build
+#          args: --verbose --release --target ${{ matrix.target }}
+
+      - name: Make artifact folder
+        shell: bash
+        run: |
+          binary_name="librespeed-rs"
+
+          dirname="$binary_name-${{ matrix.target }}"
+          mkdir "$dirname"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
+          else
+            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: librespeed-rs-${{ matrix.target }}
+          path: librespeed-rs-${{ matrix.target }}
+
+  release:
+    needs: [build]
+    name: Publish release
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Download changelog file(s)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Copy files & build archives
+        shell: bash
+        run: |
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              dir_name="${dir%/}"
+              cp "configs.toml" "LICENSE.txt" "country_asn.mmdb" "$dir_name"
+              tar -cJf "${dir_name}.tar.xz" -C "$dir_name" .
+              echo "Compressed ${dir_name}.tar.xz"
+            fi
+          done
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          md5sum_file() {
+            local file=$1
+            local checksum=$(md5sum "$file" | awk '{print $1}')
+            local filename=$(basename "$file")
+            echo "$checksum : $filename" >> checksums.txt
+          }
+          rm -f checksums.txt
+          find . -type f -name '*.xz' -or -name '*.zip' | while read file; do
+            md5sum_file "$file"
+          done
+
+      - name: Extract release notes
+        run: |
+          awk -v ver="${{ github.ref_name }}" '/^## Version / { if (p) { exit }; if ($3 == ver) { p=1; next } } p && NF' "CHANGELOG.md" > RELEASE_NOTE.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body_path: RELEASE_NOTE.txt
+          files: |
+            *.zip
+            *.xz
+            checksums.txt
