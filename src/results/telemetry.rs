@@ -13,7 +13,7 @@ use crate::config::FONT;
 use crate::config::time::{convert_time_local, get_current_millis};
 use crate::database::{Database, generate_uuid};
 use crate::http::request::Request;
-use crate::ip::IPInfo;
+use crate::ip::ip_info::IPInfo;
 use crate::results::TelemetryData;
 
 pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Database + Send>>) -> std::io::Result<String> {

@@ -11,7 +11,7 @@ use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::pki_types::ServerName;
 
 /** TLS Configuration */
-pub fn setup_tls(cert_path : &str,key_path : &str) -> std::io::Result<TlsAcceptor> {
+pub fn setup_tls_acceptor(cert_path : &str,key_path : &str) -> std::io::Result<TlsAcceptor> {
     let certs = load_certs(cert_path)?;
     let key = load_key(key_path)?;
     let config = ServerConfig::builder()

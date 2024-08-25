@@ -12,8 +12,8 @@ use crate::http::request::handle_socket;
 use crate::http::response::Response;
 
 use crate::http::routes::*;
-use crate::http::tls::setup_tls;
-use crate::ip::ip_info::get_ip_info;
+use crate::http::tls::setup_tls_acceptor;
+use crate::ip::ip_info::IPInfo;
 use crate::results::stats::handle_stat_page;
 
 pub struct HttpServer {
@@ -31,7 +31,7 @@ impl HttpServer {
         info!("Server base url : {}",config.base_url);
         let mut tls_acceptor = None;
         if config.enable_tls {
-            tls_acceptor = Some(setup_tls(&config.tls_cet_file,&config.tls_key_file)?);
+            tls_acceptor = Some(setup_tls_acceptor(&config.tls_cet_file,&config.tls_key_file)?);
         }
         Ok(HttpServer {
             tcp_listener : listener,
@@ -113,7 +113,9 @@ impl HttpServer {
                         Response::res_200_garbage(chunks)
                     }
                     i if i == make_route!("/getIP") => {
-                        let ip_info = get_ip_info(&request.remote_addr,request.query_params.get("isp").unwrap_or(&"false".to_string()).parse::<bool>().unwrap_or(false));
+                        let ip_info = IPInfo::fetch_information(
+                            &request.remote_addr,
+                            request.query_params.get("isp").unwrap_or(&"false".to_string()).parse::<bool>().unwrap_or(false)).await;
                         Response::res_200_json(&ip_info)
                     }
                     i if i == make_route!("/results") => {
