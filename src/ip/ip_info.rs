@@ -2,7 +2,8 @@ use std::net::{IpAddr, Ipv4Addr};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::ip::IPInfo;
+use crate::config::SERVER_CONFIG;
+use crate::http::http_client::HttpClient;
 use crate::ip::mmdb::mmdb_reader::MMDBReader;
 use crate::ip::mmdb::mmdb_record::MMDBResult;
 
@@ -66,15 +67,22 @@ impl IPInfo {
             return json_string.to_string()
         }
 
-    //get isp info from db or api
-    if let Some(isp_info) = get_isp_info_from_db(raw_ip) {
-        ip_info_model.processedString = format!("{} - {}, {}",raw_ip,isp_info.as_name,isp_info.country_name);
-        ip_info_model.rawIspInfo.ip = raw_ip.to_string();
-        ip_info_model.rawIspInfo.country = isp_info.country;
-        ip_info_model.rawIspInfo.organization = format!("{} {}",isp_info.asn,isp_info.as_name);
-        let json_string = json!(ip_info_model);
-        json_string.to_string()
-    } else {
+        //get isp info from api
+        if let Some(isp_info) = Self::get_isp_info_from_api(raw_ip).await {
+            ip_info_model.processedString = isp_info;
+            let json_string = json!(ip_info_model);
+            return json_string.to_string()
+        }
+
+        //get isp info from db
+        if let Some(isp_info) = Self::get_isp_info_from_db(raw_ip) {
+            ip_info_model.processedString = format!("{} - {}, {}",raw_ip,isp_info.as_name,isp_info.country_name);
+            ip_info_model.rawIspInfo.ip = raw_ip.to_string();
+            ip_info_model.rawIspInfo.country = isp_info.country;
+            ip_info_model.rawIspInfo.organization = format!("{} {}",isp_info.asn,isp_info.as_name);
+            let json_string = json!(ip_info_model);
+            json_string.to_string()
+        } else {
 
             //failed to get isp and send only ip
             ip_info_model.processedString = raw_ip.to_string();
@@ -105,13 +113,45 @@ impl IPInfo {
         None
     }
 
-fn get_isp_info_from_db(ip : &str) -> Option<MMDBResult> {
-    if let Some(mut ipdb_reader) = MMDBReader::from("country_asn.mmdb") {
-        return ipdb_reader.lookup(ip)
+    fn get_isp_info_from_db(ip : &str) -> Option<MMDBResult> {
+        if let Some(mut ipdb_reader) = MMDBReader::from("country_asn.mmdb") {
+            return ipdb_reader.lookup(ip)
+        }
+        warn!("Unable to open country asn database file");
+        None
     }
-    warn!("Unable to open country asn database file");
-    None
-}
+
+    async fn get_isp_info_from_api(ip : &str) -> Option<String> {
+        let config = SERVER_CONFIG.get().unwrap();
+        let ip_info_token = config.ipinfo_api_key.clone();
+        if ip_info_token.is_empty() {
+            return None
+        }
+        let mut client = HttpClient::open("https://ipinfo.io").await;
+        let request = format!(
+            "GET /{}/json?token={} HTTP/1.1\r\n\
+                Host: ipinfo.io\r\n\r\n",
+            ip,
+            ip_info_token
+        );
+        if let Some(res_body) = client.send_request_json(request.as_bytes()).await {
+            let isp = if let Some(org) = res_body.get("org") {
+                Some(org.as_str().unwrap())
+            } else {
+                let asn_name = &res_body["asn"]["name"];
+                if !asn_name.is_null() {
+                    Some(asn_name.as_str().unwrap())
+                } else {
+                    None
+                }
+            };
+            isp.as_ref()?;
+            let output = format!("{} - {}, {}",ip,isp.unwrap(),res_body.get("country").unwrap().as_str().unwrap());
+            Some(output)
+        } else {
+            None
+        }
+    }
 
     fn is_private_ipv4(ip: &str) -> bool {
         if let Ok(ip_addr) = ip.parse::<Ipv4Addr>() {
