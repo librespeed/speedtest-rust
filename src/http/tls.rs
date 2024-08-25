@@ -3,9 +3,12 @@ use std::io::{BufReader, Error, ErrorKind};
 use std::sync::Arc;
 use log::info;
 use rustls_pemfile::{certs, private_key};
+use tokio::net::TcpStream;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use tokio_rustls::rustls::ServerConfig;
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::rustls::{ClientConfig, RootCertStore, ServerConfig};
+use tokio_rustls::{TlsAcceptor, TlsConnector};
+use tokio_rustls::client::TlsStream;
+use tokio_rustls::rustls::pki_types::ServerName;
 
 /** TLS Configuration */
 pub fn setup_tls(cert_path : &str,key_path : &str) -> std::io::Result<TlsAcceptor> {
@@ -18,6 +21,15 @@ pub fn setup_tls(cert_path : &str,key_path : &str) -> std::io::Result<TlsAccepto
     let acceptor = TlsAcceptor::from(Arc::new(config));
     info!("Server TLS successfully configured");
     Ok(acceptor)
+}
+
+pub async fn setup_tls_connector(domain : String,tcp_stream: TcpStream) -> TlsStream<TcpStream> {
+    let mut root_cert_store = RootCertStore::empty();
+    root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let config = ClientConfig::builder().with_root_certificates(root_cert_store).with_no_client_auth();
+    let dns_name = ServerName::try_from(domain).unwrap();
+    let connector = TlsConnector::from(Arc::new(config));
+    connector.connect(dns_name, tcp_stream).await.unwrap()
 }
 
 fn open_file_buf(path : &str,err_msg : &str) -> std::io::Result<File> {

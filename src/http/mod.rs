@@ -7,7 +7,8 @@ mod routes;
 pub mod request;
 pub mod response;
 pub mod cookie;
-mod tls;
+pub mod tls;
+pub mod http_client;
 
 #[derive(Debug)]
 pub enum Method {
@@ -27,13 +28,6 @@ impl MethodStr for str {
             _ => Method::Get
         }
     }
-}
-
-pub fn simple_parse_url(url: &str) -> (String,String,i32,String) {
-    let (scheme, rest) = url.split_once("://").unwrap();
-    let (host, path) = rest.split_once('/').unwrap();
-    let port = if scheme == "https" { 443 } else { 80 };
-    (scheme.to_string(),host.to_string(),port,path.to_string())
 }
 
 pub async fn find_remote_ip_addr (conn: &mut TcpStream) -> String {
