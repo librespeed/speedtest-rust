@@ -90,6 +90,9 @@ Compatible with all librespeed clients :
     
     # base api url /{base_url}/routes
     base_url="backend"
+    
+    # ipinfo.io API key, If the api-key works, the priority is with the api, if not with the offline database
+    ipinfo_api_key=""
 
     # set directory of speedtest web front to server load on `/`. use empty retrun 404
     speed_test_dir="./assets" # Write without suffix separator
