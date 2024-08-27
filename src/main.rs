@@ -10,15 +10,21 @@ mod database;
 mod ip;
 mod config;
 
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
+const PKG_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+
 fn main() -> std::io::Result<()> {
     //parse args
-    let args = Command::new("librespeed-rs")
-        .version("1.2.1")
-        .about("Rust backend for LibreSpeed")
+    let args = Command::new(PKG_NAME)
+        .version(PKG_VERSION)
+        .author(PKG_AUTHORS)
+        .about(PKG_DESCRIPTION)
         .arg(Arg::new("server_config_path").short('c').long("config"))
         .arg(Arg::new("update-ipdb")
             .long("update-ipdb")
-            .help("Update IPInfo country asn database")
+            .help("Download or update IPInfo country asn database")
             .action(ArgAction::SetTrue))
         .get_matches();
 

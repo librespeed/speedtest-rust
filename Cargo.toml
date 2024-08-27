@@ -2,6 +2,8 @@
 name = "librespeed-rs"
 version = "1.2.1"
 edition = "2021"
+authors = ["Sudo Dios"]
+description = "Rust backend for LibreSpeed"
 
 [dependencies]
 #async net
