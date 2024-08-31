@@ -26,7 +26,7 @@ impl Database for MemoryDB {
     }
 
     fn fetch_last_100(&mut self) -> std::io::Result<Vec<TelemetryData>> {
-        let data : Vec<TelemetryData> = self.records.iter().map(|(_id,rec) | rec.clone()).collect();
+        let data : Vec<TelemetryData> = self.records.values().cloned().collect();
         Ok(data)
     }
 }
