@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub mod telemetry;
 pub mod stats;
 
-#[derive(Deserialize,Serialize, Debug)]
+#[derive(Deserialize,Serialize, Debug,Clone)]
 pub struct TelemetryData {
     pub ip_address : String,
     pub isp_info : String,

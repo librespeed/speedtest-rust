@@ -4,6 +4,7 @@ use log::info;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use crate::config::SERVER_CONFIG;
+use crate::database::memory::MemoryDB;
 use crate::database::mysql::MySql;
 use crate::database::none::NoneDB;
 use crate::database::postgres::Postgres;
@@ -14,6 +15,7 @@ mod mysql;
 mod none;
 mod postgres;
 mod sqlite;
+mod memory;
 
 pub trait Database {
     fn insert(&mut self,data : TelemetryData) -> std::io::Result<()>;
@@ -46,6 +48,11 @@ pub fn init () -> std::io::Result<Arc<Mutex<dyn Database + Send>>> {
             let sqlite_setup = sqlite::init(&config.database_file)?;
             info!("Database {} initialized successfully","Sqlite");
             Ok(Arc::new(Mutex::new(SQLite {connection : sqlite_setup})))
+        }
+        "memory" => {
+            let memory_setup = memory::init();
+            info!("Database {} initialized successfully","in-memory");
+            Ok(Arc::new(Mutex::new(MemoryDB {records : memory_setup})))
         }
         "none" => {
             info!("Database disabled");
