@@ -122,33 +122,37 @@ impl IPInfo {
     }
 
     async fn get_isp_info_from_api(ip : &str) -> Option<String> {
-        let config = SERVER_CONFIG.get().unwrap();
+        let config = SERVER_CONFIG.get()?;
         let ip_info_token = config.ipinfo_api_key.clone();
         if ip_info_token.is_empty() {
             return None
         }
-        let mut client = HttpClient::open("https://ipinfo.io").await;
-        let request = format!(
-            "GET /{}/json?token={} HTTP/1.1\r\n\
+        if let Ok(mut client) = HttpClient::open("https://ipinfo.io").await {
+            let request = format!(
+                "GET /{}/json?token={} HTTP/1.1\r\n\
                 Host: ipinfo.io\r\n\r\n",
-            ip,
-            ip_info_token
-        );
-        if let Some(res_body) = client.send_request_json(request.as_bytes()).await {
-            let isp = if let Some(org) = res_body.get("org") {
-                Some(org.as_str().unwrap())
-            } else {
-                let asn_name = &res_body["asn"]["name"];
-                if !asn_name.is_null() {
-                    Some(asn_name.as_str().unwrap())
+                ip,
+                ip_info_token
+            );
+            if let Ok(Some(res_body)) = client.send_request_json(request.as_bytes()).await {
+                let isp = if let Some(org) = res_body.get("org") {
+                    Some(org.as_str()?)
                 } else {
-                    None
-                }
-            };
-            isp.as_ref()?;
-            let output = format!("{} - {}, {}",ip,isp.unwrap(),res_body.get("country").unwrap().as_str().unwrap());
-            Some(output)
+                    let asn_name = &res_body["asn"]["name"];
+                    if !asn_name.is_null() {
+                        Some(asn_name.as_str()?)
+                    } else {
+                        None
+                    }
+                };
+                isp.as_ref()?;
+                let output = format!("{} - {}, {}",ip,isp?,res_body.get("country")?.as_str()?);
+                Some(output)
+            } else {
+                None
+            }
         } else {
+            warn!("Http client error.");
             None
         }
     }

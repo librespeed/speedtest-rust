@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::Error;
+use std::io::{Error, ErrorKind};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use serde_json::Value;
@@ -55,28 +55,28 @@ impl AsyncWrite for ClientStream {
 
 impl HttpClient {
 
-    pub async fn open(url : &str) -> Self {
-        let pared_url = Self::parse_url(url);
-        let tcp_stream = TcpStream::connect(format!("{}:{}",pared_url.1,pared_url.2)).await.unwrap();
+    pub async fn open(url : &str) -> std::io::Result<Self> {
+        let pared_url = Self::parse_url(url)?;
+        let tcp_stream = TcpStream::connect(format!("{}:{}",pared_url.1,pared_url.2)).await?;
         let stream = if pared_url.2 == 443 {
             let tls_stream = setup_tls_connector(pared_url.1.clone(),tcp_stream).await;
             ClientStream::Tls(tls_stream)
         } else {
             ClientStream::Tcp(tcp_stream)
         };
-        HttpClient {
+        Ok(HttpClient {
             host : pared_url.1,
             path : pared_url.3,
             stream
-        }
+        })
     }
 
-    pub async fn send_request_json(&mut self,packet : &[u8]) -> Option<Value> {
-        self.stream.write_all(packet).await.unwrap();
+    pub async fn send_request_json(&mut self,packet : &[u8]) -> std::io::Result<Option<Value>> {
+        self.stream.write_all(packet).await?;
         let mut read_data = Vec::new();
         loop {
             let mut response = vec![0; 128];
-            let read = self.stream.read(&mut response).await.unwrap();
+            let read = self.stream.read(&mut response).await?;
             read_data.extend(response);
             if read < 128 { //EOF
                 break;
@@ -88,12 +88,12 @@ impl HttpClient {
             let mut split_body = response.splitn(2,"\r\n\r\n");
             let resp_body = split_body.nth(1).unwrap_or("");
             if let Ok(parsed_json_body) = serde_json::from_str::<Value>(resp_body) {
-                Some(parsed_json_body)
+                Ok(Some(parsed_json_body))
             } else {
-                None
+                Ok(None)
             }
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -142,15 +142,18 @@ impl HttpClient {
         }
     }
 
-    fn parse_url(url: &str) -> (String,String,i32,String) {
-        let (scheme, rest) = url.split_once("://").unwrap();
-        let (host, path) = if rest.contains('/') {
-            rest.split_once('/').unwrap()
+    fn parse_url(url: &str) -> std::io::Result<(String,String,i32,String)> {
+        if let Some((scheme, rest)) = url.split_once("://") {
+            let (host, path) = if rest.contains('/') {
+                rest.split_once('/').unwrap()
+            } else {
+                (rest,"")
+            };
+            let port = if scheme == "https" { 443 } else { 80 };
+            Ok((scheme.to_string(),host.to_string(),port,path.to_string()))
         } else {
-            (rest,"")
-        };
-        let port = if scheme == "https" { 443 } else { 80 };
-        (scheme.to_string(),host.to_string(),port,path.to_string())
+            Err(Error::new(ErrorKind::Other,"Error parsing input url"))
+        }
     }
 
 }
