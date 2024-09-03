@@ -94,7 +94,7 @@ Compatible with all librespeed clients :
     # ipinfo.io API key, If the api-key works, the priority is with the api, if not with the offline database
     ipinfo_api_key=""
 
-    # set directory of speedtest web front to server load on `/`. use empty retrun 404
+    # set directory of speedtest web front to server load on `/`. If it is empty, default web will be returned
     speed_test_dir="./assets" # Write without suffix separator
 
     # password for logging into statistics page, fill this to enable stats page
