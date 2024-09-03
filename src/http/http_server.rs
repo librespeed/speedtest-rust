@@ -27,7 +27,7 @@ impl HttpServer {
         let addr = format!("{}:{}",config.bind_address,config.listen_port);
         let listener = TcpListener::bind(addr.clone()).await?;
         info!("Server started on {}",addr);
-        info!("Server base url : {}",config.base_url);
+        info!("Server base url : {}/",config.base_url);
         let mut tls_acceptor = None;
         if config.enable_tls {
             tls_acceptor = Some(setup_tls_acceptor(&config.tls_cet_file,&config.tls_key_file)?);
@@ -128,12 +128,10 @@ impl HttpServer {
                             Response::res_404()
                         }
                     }
+                } else if matches!(request.method,Method::Get) {
+                    Response::res_200_fs(request.path.trim())
                 } else {
-                    if matches!(request.method,Method::Get) {
-                        Response::res_200_index(request.path.trim())
-                    } else {
-                        Response::res_404()
-                    }
+                    Response::res_404()
                 }
             })
         }).await;

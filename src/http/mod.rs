@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 use tokio::net::TcpStream;
+use std::fs::File;
+use std::io::Read;
+use crate::config::{DEF_ASSETS, SERVER_CONFIG};
 
 pub mod http_server;
 mod routes;
@@ -32,6 +35,52 @@ impl MethodStr for str {
 pub async fn find_remote_ip_addr (conn: &mut TcpStream) -> String {
     let client_addr = conn.peer_addr().unwrap();
     client_addr.ip().to_string().replace("::ffff:","")
+}
+
+pub fn get_index_file_content(file_name : &str) -> Option<Vec<u8>> {
+    if SERVER_CONFIG.get()?.speed_test_dir.is_empty() {
+        if file_name.contains("servers_list.js") {
+            Some(generate_server_endpoint())
+        } else {
+            let file_name = &file_name[1..];
+            let file = DEF_ASSETS.get_file(file_name)?;
+            Some(Vec::from(file.contents()))
+        }
+    } else {
+        let file_path = format!("{}{}",SERVER_CONFIG.get()?.speed_test_dir,file_name);
+        if let Ok(mut file) = File::open(file_path) {
+            let mut file_bytes = Vec::new();
+            if file.read_to_end(&mut file_bytes).is_ok() {
+                Some(file_bytes)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+fn generate_server_endpoint() -> Vec<u8> {
+    let base_url = SERVER_CONFIG.get().unwrap().base_url.clone();
+    let base_url = if base_url.is_empty() {
+        "".to_string()
+    } else {
+        format!("{}/",&base_url[1..])
+    };
+    let endpoint = format!(r#"function get_servers() {{
+        return [
+            {{
+                name : "Simple Server",
+                server : window.location.origin,
+                dlURL: "{base_url}garbage",
+                ulURL: "{base_url}empty",
+                pingURL: "{base_url}empty",
+                getIpURL: "{base_url}getIP"
+            }}
+        ]
+    }}"#);
+    Vec::from(endpoint.as_bytes())
 }
 
 

@@ -35,6 +35,8 @@ tera = { version = "1.20.0",default-features = false }
 env_logger = { version = "0.11.5",default-features = false,features = ["auto-color","humantime"] }
 log = "0.4.22"
 indicatif = "0.17.8"
+#assets
+include_dir = "0.7.4"
 
 [profile.release]
 codegen-units = 1

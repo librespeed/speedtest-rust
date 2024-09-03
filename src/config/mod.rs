@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use ab_glyph::FontRef;
+use include_dir::{include_dir, Dir};
 use log::{info, LevelFilter, trace};
 use serde::Deserialize;
 use serde_json::Value;
@@ -162,6 +163,8 @@ fn initialize (mut config: ServerConfig) -> std::io::Result<()> {
         } else {
             info!("Config speed test directory failed !")
         }
+    } else {
+        info!("Config default speed test directory.")
     }
     SERVER_CONFIG.get_or_init(|| config);
     //garbage data
@@ -187,3 +190,4 @@ pub static ROUTES: OnceLock<HashMap<String,&str>> = OnceLock::new();
 pub static GARBAGE_DATA: OnceLock<Vec<u8>> = OnceLock::new();
 pub static SERVER_CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 pub static FONT: OnceLock<FontRef> = OnceLock::new();
+pub static DEF_ASSETS : Dir = include_dir!("assets");
