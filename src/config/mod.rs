@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::sync::OnceLock;
@@ -140,9 +141,21 @@ fn validate_base_url_path(base_url : &str) -> String {
     }
 }
 
+fn generate_routes(base_url : &str) {
+    let mut routes = HashMap::new();
+    routes.insert(format!("{base_url}/empty"),"empty");
+    routes.insert(format!("{base_url}/garbage"),"garbage");
+    routes.insert(format!("{base_url}/getIP"),"getIP");
+    routes.insert(format!("{base_url}/results"),"results");
+    routes.insert(format!("{base_url}/results/telemetry"),"results/telemetry");
+    routes.insert(format!("{base_url}/stats"),"stats");
+    ROUTES.get_or_init(|| routes);
+}
+
 fn initialize (mut config: ServerConfig) -> std::io::Result<()> {
     //server config
     config.base_url = validate_base_url_path(&config.base_url);
+    generate_routes(&config.base_url);
     if !config.speed_test_dir.is_empty() {
         if check_speed_test_dir(&config.speed_test_dir) {
             info!("Config speed test directory successfully.")
@@ -170,6 +183,7 @@ fn check_speed_test_dir (dir : &str) -> bool {
 
 /*Static Values*/
 const CHUNK_SIZE : usize = 524288; //512 Kilobytes x2
+pub static ROUTES: OnceLock<HashMap<String,&str>> = OnceLock::new();
 pub static GARBAGE_DATA: OnceLock<Vec<u8>> = OnceLock::new();
 pub static SERVER_CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 pub static FONT: OnceLock<FontRef> = OnceLock::new();

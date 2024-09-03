@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use tokio::net::TcpStream;
-use crate::http::request::Request;
 
 pub mod http_server;
 mod routes;
@@ -35,11 +34,6 @@ pub async fn find_remote_ip_addr (conn: &mut TcpStream) -> String {
     client_addr.ip().to_string().replace("::ffff:","")
 }
 
-pub fn check_route_for_index_page(req : &Request) -> bool {
-    let path = req.path.clone();
-    let sep_count = path.chars().filter(|c| *c == '/').count();
-    matches!(req.method, Method::Get) && (sep_count == 1)
-}
 
 pub fn get_chunk_count (query_params : &HashMap<String,String>) -> i32 {
     let mut chunks = 4;

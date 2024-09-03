@@ -4,10 +4,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter, split};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio_rustls::TlsAcceptor;
-use crate::make_route;
-use crate::config::SERVER_CONFIG;
+use crate::config::{ROUTES, SERVER_CONFIG};
 use crate::database::Database;
-use crate::http::{check_route_for_index_page, find_remote_ip_addr, get_chunk_count};
+use crate::http::{find_remote_ip_addr, get_chunk_count};
 use crate::http::request::handle_socket;
 use crate::http::response::Response;
 
@@ -101,35 +100,36 @@ impl HttpServer {
             let mut database = database.clone();
 
             Box::pin(async move {
-                match request.path.trim() {
-                    i if check_route_for_index_page(&request) => {
-                        Response::res_200_index(i)
+                if let Some(route) = ROUTES.get().unwrap().get(request.path.trim()) {
+                    match *route {
+                        "empty" => {
+                            Response::res_200("")
+                        }
+                        "garbage" => {
+                            let chunks = get_chunk_count(&request.query_params);
+                            Response::res_200_garbage(chunks)
+                        }
+                        "getIP" => {
+                            let ip_info = IPInfo::fetch_information(
+                                &request.remote_addr,
+                                request.query_params.get("isp").unwrap_or(&"false".to_string()).parse::<bool>().unwrap_or(false)).await;
+                            Response::res_200_json(&ip_info)
+                        }
+                        "results" => {
+                            show_result_route(&mut database,&request.query_params).await
+                        }
+                        "results/telemetry" => {
+                            telemetry_record_route(&mut database, &request).await
+                        }
+                        "stats" => {
+                            handle_stat_page(&request,&mut database).await
+                        }
+                        _ => {
+                            Response::res_404()
+                        }
                     }
-                    i if i == make_route!("/empty") => {
-                        Response::res_200("")
-                    }
-                    i if i == make_route!("/garbage") => {
-                        let chunks = get_chunk_count(&request.query_params);
-                        Response::res_200_garbage(chunks)
-                    }
-                    i if i == make_route!("/getIP") => {
-                        let ip_info = IPInfo::fetch_information(
-                            &request.remote_addr,
-                            request.query_params.get("isp").unwrap_or(&"false".to_string()).parse::<bool>().unwrap_or(false)).await;
-                        Response::res_200_json(&ip_info)
-                    }
-                    i if i == make_route!("/results") => {
-                        show_result_route(&mut database,&request.query_params).await
-                    }
-                    i if i == make_route!("/results/telemetry") => {
-                        telemetry_record_route(&mut database, &request).await
-                    }
-                    i if i == make_route!("/stats") => {
-                        handle_stat_page(&request,&mut database).await
-                    }
-                    _ => {
-                        Response::res_404()
-                    }
+                } else {
+                    Response::res_200_index(request.path.trim())
                 }
             })
         }).await;
