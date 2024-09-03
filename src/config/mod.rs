@@ -175,7 +175,7 @@ fn initialize (mut config: ServerConfig) -> std::io::Result<()> {
     garbage.extend(b"\r\n");
     GARBAGE_DATA.get_or_init(|| garbage);
     //font for result image
-    FONT.get_or_init(|| FontRef::try_from_slice(include_bytes!("../../res/open-sans.ttf")).unwrap());
+    FONT.get_or_init(|| FontRef::try_from_slice(include_bytes!("../../assets/open-sans.ttf")).unwrap());
     Ok(())
 }
 
