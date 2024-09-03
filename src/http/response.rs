@@ -97,13 +97,16 @@ impl Response {
                     i if i.ends_with(".ico") => {
                         "image/vnd.microsoft.icon"
                     }
+                    i if i.ends_with(".css") => {
+                        "text/css"
+                    }
                     _ => {
                         ""
                     }
                 };
 
                 let data = match content_type {
-                    i if i == "text/javascript" || i == "text/html" => {
+                    i if i == "text/javascript" || i == "text/html" || i == "text/css" => {
                         let content = String::from_utf8(content_raw).unwrap();
                         format!(
                             "HTTP/1.1 200 OK\r\n\
