@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use tokio_rustls::TlsAcceptor;
 use crate::config::{ROUTES, SERVER_CONFIG};
 use crate::database::Database;
-use crate::http::{find_remote_ip_addr, get_chunk_count};
+use crate::http::{find_remote_ip_addr, get_chunk_count, Method};
 use crate::http::request::handle_socket;
 use crate::http::response::Response;
 
@@ -129,7 +129,11 @@ impl HttpServer {
                         }
                     }
                 } else {
-                    Response::res_200_index(request.path.trim())
+                    if matches!(request.method,Method::Get) {
+                        Response::res_200_index(request.path.trim())
+                    } else {
+                        Response::res_404()
+                    }
                 }
             })
         }).await;
