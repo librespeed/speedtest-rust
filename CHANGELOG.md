@@ -1,3 +1,13 @@
+## Version v1.3.0
+
+### What's changed (fixes) ?
+
+- Added support for in-memory database
+- Included default web-frontend in binary (with automatic server detection)
+- Fix some bugs in http server / client
+- Fix css loading problem
+- Now it is real OOTB ☺️
+
 ## Version v1.2.1
 
 ### What's changed (fixes) ?
