@@ -15,7 +15,7 @@ pub mod time;
 #[derive(Deserialize, Debug)]
 pub struct ServerConfig {
     pub bind_address : String,
-    pub listen_port : i32,
+    pub listen_port : u16,
     pub worker_threads: Value,
     pub base_url : String,
     pub ipinfo_api_key : String,
