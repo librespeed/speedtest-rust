@@ -11,6 +11,7 @@ pub mod response;
 pub mod cookie;
 pub mod tls;
 pub mod http_client;
+mod tcp_socket;
 
 #[derive(Debug)]
 pub enum Method {

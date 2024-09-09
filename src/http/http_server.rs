@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use log::{info, trace};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter, split};
-use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio_rustls::TlsAcceptor;
 use crate::config::{ROUTES, SERVER_CONFIG};
@@ -11,12 +10,13 @@ use crate::http::request::handle_socket;
 use crate::http::response::Response;
 
 use crate::http::routes::*;
+use crate::http::tcp_socket::TcpSocket;
 use crate::http::tls::setup_tls_acceptor;
 use crate::ip::ip_info::IPInfo;
 use crate::results::stats::handle_stat_page;
 
 pub struct HttpServer {
-    pub tcp_listener: TcpListener,
+    pub tcp_socket: TcpSocket,
     pub tls_acceptor: Option<TlsAcceptor>
 }
 
@@ -24,16 +24,15 @@ impl HttpServer {
 
     pub async fn init () -> std::io::Result<Self> {
         let config = SERVER_CONFIG.get().unwrap();
-        let addr = format!("{}:{}",config.bind_address,config.listen_port);
-        let listener = TcpListener::bind(addr.clone()).await?;
-        info!("Server started on {}",addr);
+        let tcp_socket = TcpSocket::bind(config)?;
+        info!("Server started on {}",tcp_socket.to_string());
         info!("Server base url : {}/",config.base_url);
         let mut tls_acceptor = None;
         if config.enable_tls {
             tls_acceptor = Some(setup_tls_acceptor(&config.tls_cet_file,&config.tls_key_file)?);
         }
         Ok(HttpServer {
-            tcp_listener : listener,
+            tcp_socket,
             tls_acceptor
         })
     }
@@ -41,7 +40,7 @@ impl HttpServer {
     pub async fn listen (&mut self, database : &mut Arc<Mutex<dyn Database + Send>>) {
         loop {
 
-            let tcp_accept = self.tcp_listener.accept().await;
+            let tcp_accept = self.tcp_socket.accept().await;
             let mut database = database.clone();
             let tls_acceptor = self.tls_acceptor.clone();
 
