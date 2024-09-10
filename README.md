@@ -70,6 +70,7 @@ Compatible with all librespeed clients :
 3. Edit the config files:
 
     ```sh
+    $ sudo chmod o-rwx /etc/librespeed.toml docker-compose.override.yml # Hide secrets
     $ $EDITOR docker-compose.override.yml # Docker settings
     $ sudo $EDITOR /etc/librespeed.toml # Librespeed settings
     $ sudo $EDITOR /var/lib/librespeed/assets/index.html # To change styles, etc
