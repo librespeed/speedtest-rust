@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
         .get_matches();
 
     if args.get_flag("update-ipdb") {
-        ip::update_ipdb("https://raw.githubusercontent.com/librespeed/speedtest/master/backend/country_asn.mmdb", "country_asn.mmdb");
+        ip::update_ipdb("https://raw.githubusercontent.com/librespeed/speedtest-rust/master/country_asn.mmdb", "country_asn.mmdb");
         return Ok(())
     }
 
