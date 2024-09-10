@@ -49,6 +49,8 @@ Compatible with all librespeed clients :
 
 ### Build with docker
 
+0. Install docker and docker-compose. 
+
 1. Clone the repository: 
 
     ```sh
