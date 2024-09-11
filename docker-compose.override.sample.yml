@@ -1,0 +1,26 @@
+services:
+
+  speedtest:
+    container_name: my_speedtest
+    restart: unless-stopped
+    volumes:
+      - "/etc/librespeed.toml:/usr/local/bin/configs.toml"
+      - "/var/lib/librespeed/assets:/usr/local/bin/assets"
+    ports:
+      - "8080:8080/tcp" # "host_port:container_port/protocol"
+    depends_on:
+      - db
+
+# Uncomment to use postgresql
+# Don't forget to modify /etc/librespeed.toml
+#  db:
+#    image: postgres:16-alpine
+#    restart: unless-stopped
+#    shm_size: 128mb
+#    container_name: my_speedtest-db
+#    volumes: 
+#      - "/var/lib/speedtest/db:/var/lib/postgresql/data"
+#    environment:
+#      POSTGRES_PASSWORD: changeme
+#      POSTGRES_USER: librespeed
+#      POSTGRES_DB: librespeed

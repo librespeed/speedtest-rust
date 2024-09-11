@@ -47,6 +47,45 @@ Compatible with all librespeed clients :
     - Copy `setup_systemd.sh` on linux or `setup_sc_win.bat` on windows system in extracted folder.
     - Run the script file to setup as service
 
+### Build with docker
+
+0. Install docker and docker-compose. 
+
+1. Clone the repository: 
+
+    ```sh
+    $ git clone https://github.com/librespeed/speedtest-rust.git
+    $ cd speedtest-rust
+    ```
+
+2. Copy the default config and assets: 
+
+    ```sh
+    $ cp docker-compose.override.sample.yml docker-compose.override.yml
+    $ sudo mkdir /var/lib/librespeed
+    $ sudo cp configs.toml /etc/librespeed.toml
+    $ sudo cp -r assets /var/lib/librespeed/assets
+    ```
+
+3. Edit the config files:
+
+    ```sh
+    $ sudo chmod o-rwx /etc/librespeed.toml docker-compose.override.yml # Hide secrets
+    $ $EDITOR docker-compose.override.yml # Docker settings
+    $ sudo $EDITOR /etc/librespeed.toml # Librespeed settings
+    $ sudo $EDITOR /var/lib/librespeed/assets/server_list.js # To set server name and remote servers
+    $ sudo $EDITOR /var/lib/librespeed/assets/index.html # To change html styles, etc
+    ```
+
+4. Start the container: 
+
+    ```sh
+    $ docker-compose up -d
+    $ docker-compose logs -f # To check status
+    ```
+
+5. Navigate to http://localhost:8080/
+
 ### Compile from source
 
 > You need Rust **1.74+** to compile project.\
