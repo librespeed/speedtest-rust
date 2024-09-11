@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use tera::Tera;
+use handlebars::Handlebars;
+use serde_json::json;
 use tokio::sync::Mutex;
 use crate::config::SERVER_CONFIG;
 use crate::database::Database;
@@ -76,14 +77,15 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
         }
     }
 
-    let mut data= tera::Context::new();
-    data.insert("no_password",&no_password);
-    data.insert("logged_in",&logged_in);
-    data.insert("telemetry_list",&telemetry_list);
-    drop(telemetry_list);
+    let mut handlebars = Handlebars::new();
+    handlebars.register_template_string("stats_page",HTML_TEMPLATE).unwrap();
+    let data = json!({
+        "no_password": no_password,
+        "logged_in": logged_in,
+        "telemetry_list" : telemetry_list
+    });
 
-    let mut tera = Tera::new("*.html").unwrap();
-    let rendered_html = tera.render_str(HTML_TEMPLATE, &data);
+    let rendered_html = handlebars.render("stats_page",&data);
     match rendered_html {
         Ok(rendered_html) => {
             if password_wrong {
@@ -148,9 +150,9 @@ const HTML_TEMPLATE : &str = r#"
 </head>
 <body>
 <h1>LibreSpeed - Stats</h1>
-{% if no_password %}
+{{#if no_password}}
 		Please set stats_password in configs.toml to enable access.
-{% elif logged_in %}
+{{else if logged_in}}
 	<form action="stats" method="GET"><input type="hidden" name="op" value="logout" /><input type="submit" value="Logout" /></form>
 	<form action="stats" method="GET">
 		<h3>Search test results</h6>
@@ -160,27 +162,27 @@ const HTML_TEMPLATE : &str = r#"
 		<input type="submit" onclick="document.getElementById('id').value='L100'" value="Show last 100 tests" />
 	</form>
 
-    {% for item in telemetry_list %}
+    {{#each telemetry_list}}
 	<table>
-		<tr><th>Test ID</th><td>{{ item.uuid }}</td></tr>
-		<tr><th>Date and time</th><td>{{ item.timestamp }}</td></tr>
-		<tr><th>IP and ISP Info</th><td>{{ item.ip_address }}<br/>{{ item.isp_info }}</td></tr>
-		<tr><th>User agent and locale</th><td>{{ item.user_agent }}<br/>{{ item.lang }}</td></tr>
-		<tr><th>Download speed</th><td>{{ item.download }}</td></tr>
-		<tr><th>Upload speed</th><td>{{ item.upload }}</td></tr>
-		<tr><th>Ping</th><td>{{ item.ping }}</td></tr>
-		<tr><th>Jitter</th><td>{{ item.jitter }}</td></tr>
-		<tr><th>Log</th><td>{{ item.log }}</td></tr>
-		<tr><th>Extra info</th><td>{{ item.extra }}</td></tr>
+		<tr><th>Test ID</th><td>{{ this.uuid }}</td></tr>
+		<tr><th>Date and time</th><td>{{ this.timestamp }}</td></tr>
+		<tr><th>IP and ISP Info</th><td>{{ this.ip_address }}<br/>{{ this.isp_info }}</td></tr>
+		<tr><th>User agent and locale</th><td>{{ this.user_agent }}<br/>{{ this.lang }}</td></tr>
+		<tr><th>Download speed</th><td>{{ this.download }}</td></tr>
+		<tr><th>Upload speed</th><td>{{ this.upload }}</td></tr>
+		<tr><th>Ping</th><td>{{ this.ping }}</td></tr>
+		<tr><th>Jitter</th><td>{{ this.jitter }}</td></tr>
+		<tr><th>Log</th><td>{{ this.log }}</td></tr>
+		<tr><th>Extra info</th><td>{{ this.extra }}</td></tr>
 	</table>
-	{% endfor %}
-{% else %}
+	{{/each}}
+{{else}}
 	<form action="stats?op=login" method="POST">
 		<h3>Login</h3>
 		<input type="password" name="password" placeholder="Password" value=""/>
 		<input type="submit" value="Login" />
 	</form>
-{% endif %}
+{{/if}}
 </body>
 </html>
 "#;
