@@ -73,7 +73,7 @@ Compatible with all librespeed clients :
     $ sudo chmod o-rwx /etc/librespeed.toml docker-compose.override.yml # Hide secrets
     $ $EDITOR docker-compose.override.yml # Docker settings
     $ sudo $EDITOR /etc/librespeed.toml # Librespeed settings
-    $ sudo $EDITOR /var/lib/librespeed/assets/server_list.js # To set server name and remote servers
+    $ sudo $EDITOR /var/lib/librespeed/assets/servers_list.js # To set server name and remote servers
     $ sudo $EDITOR /var/lib/librespeed/assets/index.html # To change html styles, etc
     ```
 
