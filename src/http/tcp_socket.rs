@@ -20,6 +20,7 @@ impl TcpSocket {
         if !tcp_addr.is_only_v6 {
             socket.set_only_v6(false)?;
         }
+        socket.set_reuse_address(true)?;
         socket.bind(&tcp_addr.sock_addr.into())?;
         socket.listen(128)?;
         let tcp_listener = TcpListener::from_std(socket.into())?;
