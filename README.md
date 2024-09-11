@@ -49,16 +49,16 @@ Compatible with all librespeed clients :
 
 ### Build with docker
 
-0. Install docker and docker-compose. 
+1. Install docker and docker-compose. 
 
-1. Clone the repository: 
+2. Clone the repository: 
 
     ```sh
     $ git clone https://github.com/librespeed/speedtest-rust.git
     $ cd speedtest-rust
     ```
 
-2. Copy the default config and assets: 
+3. Copy the default config and assets: 
 
     ```sh
     $ cp docker-compose.override.sample.yml docker-compose.override.yml
@@ -67,7 +67,7 @@ Compatible with all librespeed clients :
     $ sudo cp -r assets /var/lib/librespeed/assets
     ```
 
-3. Edit the config files:
+4. Edit the config files:
 
     ```sh
     $ sudo chmod o-rwx /etc/librespeed.toml docker-compose.override.yml # Hide secrets
@@ -77,14 +77,14 @@ Compatible with all librespeed clients :
     $ sudo $EDITOR /var/lib/librespeed/assets/index.html # To change html styles, etc
     ```
 
-4. Start the container: 
+5. Start the container: 
 
     ```sh
-    $ docker-compose up -d
-    $ docker-compose logs -f # To check status
+    $ docker compose up -d
+    $ docker compose logs -f # To check status
     ```
 
-5. Navigate to http://localhost:8080/
+6. Navigate to http://localhost:8080/
 
 ### Compile from source
 

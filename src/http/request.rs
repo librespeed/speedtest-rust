@@ -225,12 +225,7 @@ fn check_has_body(headers : &HashMap<String,String>) -> (Option<BodyType>,Option
     };
     //check fixed body
     if let Some(content_len) = headers.get("Content-Length") {
-        let content_len = match content_len.parse::<u64>() {
-            Ok(v) => { v }
-            Err(_) => {
-                0
-            }
-        };
+        let content_len = content_len.parse::<u64>().unwrap_or(0);
         if content_len > 0 {
             let body_type = if let Some(content_type_form) = content_type_form {
                 content_type_form
