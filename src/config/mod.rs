@@ -9,6 +9,8 @@ use log::{info, LevelFilter, trace};
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
+use std::io::Write;
+use crate::config::time::current_formatted_time;
 
 pub mod time;
 
@@ -75,7 +77,13 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
 
 pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
     //init logger
-    env_logger::builder().filter_level(LevelFilter::Info).init();
+    env_logger::builder()
+        .format(|buf,rec| {
+            let style = buf.default_level_style(rec.level());
+            writeln!(buf, "[{} {style}{}{style:#} librespeed_rs] {}",current_formatted_time(),rec.level(), rec.args())
+        })
+        .filter_level(LevelFilter::Info).init();
+    println!("{HEAD_ART}");
     //find server configs
     match config_path {
         Some(config_path) => {
@@ -191,3 +199,11 @@ pub static GARBAGE_DATA: OnceLock<Vec<u8>> = OnceLock::new();
 pub static SERVER_CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 pub static FONT: OnceLock<FontRef> = OnceLock::new();
 pub static DEF_ASSETS : Dir = include_dir!("assets");
+pub const HEAD_ART : &str = r#"
+     _ _ _                                       _
+    | (_) |__  _ __ ___  ___ _ __   ___  ___  __| |      _ __ ___
+    | | | '_ \| '__/ _ \/ __| '_ \ / _ \/ _ \/ _` |_____| '__/ __|
+    | | | |_) | | |  __/\__ \ |_) |  __/  __/ (_| |_____| |  \__ \
+    |_|_|_.__/|_|  \___||___/ .__/ \___|\___|\__,_|     |_|  |___/
+                            |_|
+"#;

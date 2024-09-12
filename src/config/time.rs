@@ -7,6 +7,10 @@ pub fn convert_time_local (time : i64) -> String {
     local.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
+pub fn current_formatted_time() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string()
+}
+
 #[allow(dead_code)]
 pub fn convert_time_utc (time : i64) -> String {
     let dt = DateTime::from_timestamp_millis(time).unwrap();
