@@ -1,3 +1,11 @@
+## Version v1.3.2
+
+### What's changed (fixes) ?
+
+- Added support dual stack socket, Reported by @everything411 #3
+- Added support compile with docker compose, Thanks to @ki9us #4
+- Minor changes and improvements
+
 ## Version v1.3.0
 
 ### What's changed (fixes) ?
