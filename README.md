@@ -152,7 +152,7 @@ Compatible with all librespeed clients :
 
     # enable and use TLS option; if enable it, you need to prepare certificates and private keys
    enable_tls=false
-   tls_cet_file=""
+   tls_cert_file=""
    tls_key_file=""
     ```
 

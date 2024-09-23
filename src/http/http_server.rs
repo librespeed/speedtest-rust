@@ -29,7 +29,7 @@ impl HttpServer {
         info!("Server base url : {}/",config.base_url);
         let mut tls_acceptor = None;
         if config.enable_tls {
-            tls_acceptor = Some(setup_tls_acceptor(&config.tls_cet_file,&config.tls_key_file)?);
+            tls_acceptor = Some(setup_tls_acceptor(&config.tls_cert_file,&config.tls_key_file)?);
         }
         Ok(HttpServer {
             tcp_socket,
