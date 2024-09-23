@@ -10,9 +10,30 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::runtime::{Builder, Runtime};
 use std::io::Write;
+use crate::cmd::Cmd;
 use crate::config::time::current_formatted_time;
 
 pub mod time;
+
+trait SetIfSome<T> {
+    fn set_if_some(&mut self, option: Option<T>);
+}
+
+impl<T> SetIfSome<T> for T {
+    fn set_if_some(&mut self, option: Option<T>) {
+        if let Some(value) = option {
+            *self = value;
+        }
+    }
+}
+
+impl<T> SetIfSome<T> for Option<T> {
+    fn set_if_some(&mut self, option: Option<T>) {
+        if let Some(value) = option {
+            *self = Some(value);
+        }
+    }
+}
 
 #[derive(Deserialize, Debug)]
 pub struct ServerConfig {
@@ -75,7 +96,7 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
     }
 }
 
-pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
+pub fn init_configs (cmd : Cmd) -> std::io::Result<()> {
     //init logger
     env_logger::builder()
         .format(|buf,rec| {
@@ -85,12 +106,12 @@ pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
         .filter_level(LevelFilter::Info).init();
     println!("{HEAD_ART}");
     //find server configs
-    match config_path {
+    match cmd.server_config_path.clone() {
         Some(config_path) => {
-            let config = open_config_file(config_path);
+            let config = open_config_file(&config_path);
             match config {
                 Ok(config) => {
-                    initialize(config)?;
+                    initialize(config,cmd)?;
                     info!("Configs initialized file : {}",config_path);
                     Ok(())
                 }
@@ -104,14 +125,14 @@ pub fn init_configs (config_path : Option<&String>) -> std::io::Result<()> {
             match config {
                 // open config from current dir
                 Ok(config) => {
-                    initialize(config)?;
+                    initialize(config,cmd)?;
                     info!("Configs initialized file : configs.toml");
                     Ok(())
                 }
                 // set default config
                 Err(e) => {
                     let config = ServerConfig::default();
-                    initialize(config)?;
+                    initialize(config,cmd)?;
                     info!("Configs initialized with defaults");
                     trace!("Load config default path error : {}",e);
                     Ok(())
@@ -161,9 +182,24 @@ fn generate_routes(base_url : &str) {
     ROUTES.get_or_init(|| routes);
 }
 
-fn initialize (mut config: ServerConfig) -> std::io::Result<()> {
+fn initialize (mut config: ServerConfig,cmd : Cmd) -> std::io::Result<()> {
     //server config
     config.base_url = validate_base_url_path(&config.base_url);
+    config.bind_address.set_if_some(cmd.bind_address);
+    config.listen_port.set_if_some(cmd.listen_port);
+    config.base_url.set_if_some(cmd.base_url);
+    config.ipinfo_api_key.set_if_some(cmd.ipinfo_api_key);
+    config.speed_test_dir.set_if_some(cmd.speed_test_dir);
+    config.stats_password.set_if_some(cmd.stats_password);
+    config.database_type.set_if_some(cmd.database_type);
+    config.database_hostname.set_if_some(cmd.database_hostname);
+    config.database_name.set_if_some(cmd.database_name);
+    config.database_username.set_if_some(cmd.database_username);
+    config.database_password .set_if_some(cmd.database_password);
+    config.database_file.set_if_some(cmd.database_file);
+    config.enable_tls.set_if_some(cmd.enable_tls);
+    config.tls_cert_file.set_if_some(cmd.tls_cert_file);
+    config.tls_key_file.set_if_some(cmd.tls_key_file);
     generate_routes(&config.base_url);
     if !config.speed_test_dir.is_empty() {
         if check_speed_test_dir(&config.speed_test_dir) {
