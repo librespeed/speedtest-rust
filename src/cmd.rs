@@ -8,7 +8,7 @@ pub struct Cmd {
     pub listen_port : Option<u16>,
     pub base_url : Option<String>,
     pub ipinfo_api_key : Option<String>,
-    pub speed_test_dir : Option<String>,
+    pub assets_path : Option<String>,
     pub stats_password : Option<String>,
     pub database_type : Option<String>,
     pub database_hostname : Option<String>,
@@ -71,8 +71,8 @@ impl Cmd {
                     .value_parser(value_parser!(String))
             )
             .arg(
-                Arg::new("speed-test-dir")
-                    .long("speed-test-dir")
+                Arg::new("assets-path")
+                    .long("assets-path")
                     .help("Specify the directory of speedtest web frontend")
                     .value_parser(value_parser!(String))
             )
@@ -143,7 +143,7 @@ impl Cmd {
         let listen_port : Option<u16> = args.get_one::<u16>("listen-port").map(|s| s.to_owned());
         let base_url : Option<String> = args.get_one::<String>("base-url").map(|s| s.to_owned());
         let ipinfo_api_key : Option<String> = args.get_one::<String>("ipinfo-api-key").map(|s| s.to_owned());
-        let speed_test_dir : Option<String> = args.get_one::<String>("speed-test-dir").map(|s| s.to_owned());
+        let assets_path : Option<String> = args.get_one::<String>("assets-path").map(|s| s.to_owned());
         let stats_password : Option<String> = args.get_one::<String>("stats-password").map(|s| s.to_owned());
         let database_type : Option<String> = args.get_one::<String>("database-type").map(|s| s.to_owned());
         let database_hostname : Option<String> = args.get_one::<String>("database-hostname").map(|s| s.to_owned());
@@ -161,7 +161,7 @@ impl Cmd {
             listen_port,
             base_url,
             ipinfo_api_key,
-            speed_test_dir,
+            assets_path,
             stats_password,
             database_type,
             database_hostname,

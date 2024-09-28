@@ -39,7 +39,7 @@ pub async fn find_remote_ip_addr (conn: &mut TcpStream) -> String {
 }
 
 pub fn get_index_file_content(file_name : &str) -> Option<Vec<u8>> {
-    if SERVER_CONFIG.get()?.speed_test_dir.is_empty() {
+    if SERVER_CONFIG.get()?.assets_path.is_empty() {
         if file_name.contains("servers_list.js") {
             Some(generate_server_endpoint())
         } else {
@@ -48,7 +48,7 @@ pub fn get_index_file_content(file_name : &str) -> Option<Vec<u8>> {
             Some(Vec::from(file.contents()))
         }
     } else {
-        let file_path = format!("{}{}",SERVER_CONFIG.get()?.speed_test_dir,file_name);
+        let file_path = format!("{}{}",SERVER_CONFIG.get()?.assets_path,file_name);
         if let Ok(mut file) = File::open(file_path) {
             let mut file_bytes = Vec::new();
             if file.read_to_end(&mut file_bytes).is_ok() {
