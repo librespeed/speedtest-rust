@@ -43,7 +43,7 @@ pub struct ServerConfig {
     pub base_url : String,
     pub ipinfo_api_key : String,
     pub stats_password : String,
-    pub speed_test_dir : String,
+    pub assets_path : String,
     pub database_type : String,
     pub database_hostname : Option<String>,
     pub database_name : Option<String>,
@@ -64,7 +64,7 @@ impl Default for ServerConfig {
             base_url: "backend".to_string(),
             ipinfo_api_key: "".to_string(),
             stats_password: "".to_string(),
-            speed_test_dir: "".to_string(),
+            assets_path: "".to_string(),
             database_type: "none".to_string(),
             database_hostname: None,
             database_name: None,
@@ -189,7 +189,7 @@ fn initialize (mut config: ServerConfig,cmd : Cmd) -> std::io::Result<()> {
     config.listen_port.set_if_some(cmd.listen_port);
     config.base_url.set_if_some(cmd.base_url);
     config.ipinfo_api_key.set_if_some(cmd.ipinfo_api_key);
-    config.speed_test_dir.set_if_some(cmd.speed_test_dir);
+    config.assets_path.set_if_some(cmd.assets_path);
     config.stats_password.set_if_some(cmd.stats_password);
     config.database_type.set_if_some(cmd.database_type);
     config.database_hostname.set_if_some(cmd.database_hostname);
@@ -201,14 +201,14 @@ fn initialize (mut config: ServerConfig,cmd : Cmd) -> std::io::Result<()> {
     config.tls_cert_file.set_if_some(cmd.tls_cert_file);
     config.tls_key_file.set_if_some(cmd.tls_key_file);
     generate_routes(&config.base_url);
-    if !config.speed_test_dir.is_empty() {
-        if check_speed_test_dir(&config.speed_test_dir) {
-            info!("Config speed test directory successfully.")
+    if !config.assets_path.is_empty() {
+        if check_assets_path(&config.assets_path) {
+            info!("Config assets directory successfully.")
         } else {
-            info!("Config speed test directory failed !")
+            info!("Config assets directory failed !")
         }
     } else {
-        info!("Config default speed test directory.")
+        info!("Config default assets directory.")
     }
     SERVER_CONFIG.get_or_init(|| config);
     //garbage data
@@ -223,7 +223,7 @@ fn initialize (mut config: ServerConfig,cmd : Cmd) -> std::io::Result<()> {
     Ok(())
 }
 
-fn check_speed_test_dir (dir : &str) -> bool {
+fn check_assets_path (dir : &str) -> bool {
     let index_file = format!("{}/index.html",dir);
     Path::new(&index_file).exists()
 }

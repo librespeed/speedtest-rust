@@ -134,7 +134,7 @@ Compatible with all librespeed clients :
     ipinfo_api_key=""
 
     # set directory of speedtest web front to server load on `/`. If it is empty, default web will be returned
-    speed_test_dir="./assets" # Write without suffix separator
+    assets_path="./assets" # Write without suffix separator
 
     # password for logging into statistics page, fill this to enable stats page
     stats_password=""
