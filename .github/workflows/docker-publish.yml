@@ -1,0 +1,39 @@
+name: Build and Publish Docker Images for all OSes
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  push:
+    tags:
+      - v[0-9]+.* # This will run on version tags on any branch
+    branches:
+      - feat/docker # This can be removed but is useful for testing images will be tagged feat-docker...
+      # Other branches can be added here
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  packages: write
+
+jobs:
+  build_publish_debian:
+    uses: ./.github/workflows/docker-publish-os.yml
+    secrets: inherit
+    with:
+      dockerfile: Dockerfile
+      docker-image-suffix: ''
+      cache-name: debian
+      platforms: "['linux/amd64','linux/386','linux/arm/v7','linux/arm64']"
+  build_publish_alpine:
+    uses: ./.github/workflows/docker-publish-os.yml
+    secrets: inherit
+    with:
+      dockerfile: Dockerfile.alpine
+      docker-image-suffix: '-alpine'
+      cache-name: alpine
+      platforms: "['linux/amd64','linux/arm64']"
