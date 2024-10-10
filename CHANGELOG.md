@@ -1,3 +1,10 @@
+## Version v1.3.4
+
+### What's changed (fixes) ?
+
+- Added support for command arguments
+- Renamed `speed_test_dir` configs option to `assets_path`, Thanks to @snaakey #7
+
 ## Version v1.3.2
 
 ### What's changed (fixes) ?
