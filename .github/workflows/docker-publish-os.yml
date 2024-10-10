@@ -1,0 +1,224 @@
+name: Build and Publish Docker Images for a single OS
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        type: string
+        description: 'Dockerfile to use'
+        required: true
+      docker-image-suffix:
+        type: string
+        description: 'Docker image suffix'
+        required: true
+      cache-name:
+        type: string
+        description: 'Cache name'
+        required: true
+      platforms:
+        type: string
+        description: 'Platforms to build for'
+        required: true
+
+# inspired by https://github.com/TECH7Fox/asterisk-hass-addons/blob/main/.github/workflows/ci.yaml
+
+permissions:
+  packages: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get lowercase GitHub username
+        id: repository_owner
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ github.repository_owner }}
+      - name: Docker images
+        id: docker-images
+        run: |
+          echo 'image=ghcr.io/${{ steps.repository_owner.outputs.lowercase }}/speedtest-rust' >> "${GITHUB_OUTPUT}"
+          # Only enable push on push events or pull requests coming from the same repository, except from dependabot
+          echo 'push=${{ github.event_name == 'push' || github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}' >> "${GITHUB_OUTPUT}"
+      - name: Docker meta
+        id: docker-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ steps.docker-images.outputs.image }}
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            # Tag with branch name
+            type=ref,event=branch,suffix=${{ inputs.docker-image-suffix }}
+            # Tag with PR number
+            type=ref,event=pr,suffix=${{ inputs.docker-image-suffix }}
+            # Tag with git tag on release
+            type=ref,event=tag,suffix=${{ inputs.docker-image-suffix }}
+            # Custom "release" tag for release events
+            type=raw,value=release,enable=${{ github.event_name == 'release' }},suffix=${{ inputs.docker-image-suffix }}
+            # Tag as latest only for Debian in release events
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && inputs.cache-name == 'debian' }}
+    outputs:
+      image: ${{ steps.docker-images.outputs.image }}
+      push: ${{ steps.docker-images.outputs.push }}
+      meta-version: ${{ steps.docker-meta.outputs.version }}
+      meta-labels: ${{ steps.docker-meta.outputs.labels }}
+      meta-json: ${{ steps.docker-meta.outputs.json }}
+  build:
+    needs:
+      - prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJson(inputs.platforms) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Needed to calculate branch for tag
+          fetch-depth: 0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        if: needs.prepare.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ${{ inputs.cache-name }}-${{ matrix.platform }}-var-cache-os-package-manager-cache
+            ${{ inputs.cache-name }}-${{ matrix.platform }}-var-cache-os-package-manager-lib
+            ${{ inputs.cache-name }}-${{ matrix.platform }}-cargo-registry
+            ${{ inputs.cache-name }}-${{ matrix.platform }}-target
+          # Currently the cache is invalidated when the respective Dockerfile changes
+          # If the mount cache should persist across dockerfile and instead depend on some other file the input to the hashFiles function should be changed
+          key: cache-${{ hashFiles(inputs.dockerfile) }}-${{ inputs.cache-name }}-${{ matrix.platform }}
+
+      - name: Inject cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.0
+        with:
+          cache-map: |
+            {
+              "${{ inputs.cache-name }}-${{ matrix.platform }}-var-cache-os-package-manager-cache": {
+                "target": "/var/cache/apt",
+                "id": "speedtest-rust-debian-apt-cache"
+              },
+              "${{ inputs.cache-name }}-${{ matrix.platform }}-var-cache-os-package-manager-lib": {
+                "target": "/var/lib/apt",
+                "id": "speedtest-rust-debian-apt-lib"
+              },
+              "${{ inputs.cache-name }}-${{ matrix.platform }}-var-cache-os-package-manager-cache": {
+                "target": "/var/cache/apk",
+                "id": "speedtest-rust-alpine-apk-cache"
+              },
+              "${{ inputs.cache-name }}-${{ matrix.platform }}-cargo-registry": {
+                "target": "/usr/local/cargo/registry",
+                "id": "speedtest-rust-${{ inputs.cache-name }}-cargo-registry"
+              },
+              "${{ inputs.cache-name }}-${{ matrix.platform }}-target": {
+                "target": "/usr/local/src/target",
+                "id": "speedtest-rust-${{ inputs.cache-name }}-target"
+              }
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
+      - name: Set vars
+        id: vars
+        run: |
+          echo "artifact-name=digest-$(echo '${{ inputs.cache-name }}-${{ matrix.platform }}' | tr / -)" >> "${GITHUB_OUTPUT}"
+
+          # Set the cache-to output
+          echo 'cache-to=type=gha,scope=${{ github.ref_name }}-${{ inputs.cache-name }}-${{ matrix.platform }}' >> "${GITHUB_OUTPUT}"
+
+          # Set the cache-from output
+          if [[ '${{ github.event_name }}' == 'push' ]]; then
+            if [[ '${{ github.ref }}' == 'refs/tags/v'* ]]; then
+              # Use cache from the branch when building a tag
+              branch="$(git branch -r --contains '${{ github.ref }}')"
+              branch="${branch##*/}"
+              echo "cache-from=type=gha,scope=${branch}-${{ inputs.cache-name }}-${{ matrix.platform }}" >> "${GITHUB_OUTPUT}"
+            else
+              # Use cache from the same branch when not building a tag
+              echo 'cache-from=type=gha,scope=${{ github.ref_name }}-${{ inputs.cache-name }}-${{ matrix.platform }}' >> "${GITHUB_OUTPUT}"
+            fi
+          else
+            # Use cache from target branch too when building a pull request
+
+            # In this case, it has to be a multiline string
+            # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+            EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+
+            echo "cache-from<<${EOF}" >> "${GITHUB_OUTPUT}"
+
+            printf '%s\n' \
+              "type=gha,scope=${{ github.ref_name }}-${{ inputs.cache-name }}-${{ matrix.platform }}" \
+              "type=gha,scope=${{ github.base_ref }}-${{ inputs.cache-name }}-${{ matrix.platform }}" \
+              >> "${GITHUB_OUTPUT}"
+
+            echo "${EOF}" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{inputs.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          labels: ${{ needs.prepare.outputs.meta-labels }}
+          outputs: |
+            type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=${{ needs.prepare.outputs.push }}
+          cache-from: |
+            ${{ steps.vars.outputs.cache-from }}
+          cache-to: |
+            ${{ steps.vars.outputs.cache-to }}
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest='${{ steps.build.outputs.digest }}'
+          touch "/tmp/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.artifact-name }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  push:
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ inputs.cache-name }}*
+          merge-multiple: true
+          path: /tmp/digests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        if: needs.prepare.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create manifest list and push
+        if: needs.prepare.outputs.push == 'true'
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -r '"-t " + (.tags | join(" -t "))' <<< '${{ needs.prepare.outputs.meta-json }}') \
+            $(printf '${{ needs.prepare.outputs.image }}@sha256:%s ' *)
+      - name: Inspect image
+        if: needs.prepare.outputs.push == 'true'
+        run: |
+          docker buildx imagetools inspect '${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.meta-version }}'

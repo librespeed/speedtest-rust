@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1
+# Build
+FROM rust:1-alpine3.20 AS builder
+WORKDIR /usr/local/src
+
+# OS deps
+RUN --mount=type=cache,id=speedtest-rust-alpine-apk,sharing=locked,target=/var/cache/apk \
+	set -eux; \
+	apk add build-base mold clang;
+
+# This seems to be an issue with libm
+# It should be reported to the libm crate after verifying that is really the cause of the compilation error
+RUN set -eux; \
+	SRC_PREFIX="/usr/bin/x86_64-alpine-linux-musl-"; \
+	TARGET_PREFIX="/usr/bin/x86_64-linux-musl-"; \
+	binaries="c++ cc g++ gcc gcc-13.2.1 gcc-ar gcc-nm gcc-ranlib"; \
+	for bin in $binaries; do \
+	if [ -e "${SRC_PREFIX}${bin}" ]; then \
+	ln -sf "${SRC_PREFIX}${bin}" "${TARGET_PREFIX}${bin}"; \
+	echo "Created symlink for ${bin}"; \
+	else \
+	echo "Source binary ${SRC_PREFIX}${bin} not found, skipping"; \
+	fi \
+	done;
+
+COPY . .
+RUN --mount=type=cache,id=speedtest-rust-alpine-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+	--mount=type=cache,id=speedtest-rust-alpine-target,target=/usr/local/src/target,sharing=locked \
+	RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=$(which mold)" \
+	cargo install --path . --target-dir target
+
+# Run
+FROM alpine:3.20
+WORKDIR /usr/local/bin
+COPY --from=builder \
+	/usr/local/cargo/bin/librespeed-rs \
+	librespeed-rs
+COPY configs.toml configs.toml
+COPY assets assets
+EXPOSE 8080
+CMD ["librespeed-rs"]
