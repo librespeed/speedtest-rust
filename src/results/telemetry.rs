@@ -9,16 +9,18 @@ use imageproc::rect::Rect;
 use log::error;
 use tokio::sync::Mutex;
 
-use crate::config::FONT;
+use crate::config::{FONT, SERVER_CONFIG};
 use crate::config::time::{convert_time_local, get_current_millis};
 use crate::database::{Database, generate_uuid};
 use crate::http::request::Request;
+use crate::results;
 use crate::ip::ip_info::IPInfo;
 use crate::results::TelemetryData;
 
 pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Database + Send>>) -> std::io::Result<String> {
     let default = "".to_string();
-    let isp_info = request.form_data.get("ispinfo").unwrap_or(&default);
+    let mut ip_address = request.remote_addr.to_string();
+    let mut isp_info = request.form_data.get("ispinfo").unwrap_or(&default).clone();
     let extra = request.form_data.get("extra").unwrap_or(&default);
     let ua = request.headers.get("User-Agent").unwrap_or(&default);
     let lang = request.headers.get("Accept-Language").unwrap_or(&default);
@@ -26,11 +28,21 @@ pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Da
     let ul = request.form_data.get("ul").unwrap_or(&default);
     let ping = request.form_data.get("ping").unwrap_or(&default);
     let jitter = request.form_data.get("jitter").unwrap_or(&default);
-    let log = request.form_data.get("log").unwrap_or(&default);
+    let mut log = request.form_data.get("log").unwrap_or(&default).clone();
     let uuid = generate_uuid();
-    let mut data = database.lock().await;
-    let insert_db = data.insert(TelemetryData {
-        ip_address: request.remote_addr.to_string(),
+
+    let config = SERVER_CONFIG.get().unwrap();
+    if config.redact_ip_addresses {
+        ip_address = "0.0.0.0".to_string();
+        results::redact_hostname(&mut isp_info,"\"hostname\":\"REDACTED\"");
+        results::redact_all_ips(&mut isp_info,"0.0.0.0");
+        results::redact_hostname(&mut log,"\"hostname\":\"REDACTED\"");
+        results::redact_all_ips(&mut log,"0.0.0.0");
+    }
+
+    let mut database = database.lock().await;
+    let insert_db = database.insert(TelemetryData {
+        ip_address,
         isp_info: isp_info.to_string(),
         extra: extra.to_string(),
         user_agent: ua.to_string(),

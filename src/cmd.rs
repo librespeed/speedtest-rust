@@ -10,6 +10,7 @@ pub struct Cmd {
     pub ipinfo_api_key : Option<String>,
     pub assets_path : Option<String>,
     pub stats_password : Option<String>,
+    pub redact_ip_addresses : Option<bool>,
     pub database_type : Option<String>,
     pub database_hostname : Option<String>,
     pub database_name : Option<String>,
@@ -83,6 +84,12 @@ impl Cmd {
                     .value_parser(value_parser!(String))
             )
             .arg(
+                Arg::new("redact-ips")
+                    .long("redact-ips")
+                    .help("Redact IP addresses")
+                    .value_parser(value_parser!(bool))
+            )
+            .arg(
                 Arg::new("database-type")
                     .long("database-type")
                     .help("Specify the database type : mysql, postgres, sqlite, memory")
@@ -145,6 +152,7 @@ impl Cmd {
         let ipinfo_api_key : Option<String> = args.get_one::<String>("ipinfo-api-key").map(|s| s.to_owned());
         let assets_path : Option<String> = args.get_one::<String>("assets-path").map(|s| s.to_owned());
         let stats_password : Option<String> = args.get_one::<String>("stats-password").map(|s| s.to_owned());
+        let redact_ip_addresses : Option<bool> = args.get_one::<bool>("redact-ips").map(|s| s.to_owned());
         let database_type : Option<String> = args.get_one::<String>("database-type").map(|s| s.to_owned());
         let database_hostname : Option<String> = args.get_one::<String>("database-hostname").map(|s| s.to_owned());
         let database_name : Option<String> = args.get_one::<String>("database-name").map(|s| s.to_owned());
@@ -163,6 +171,7 @@ impl Cmd {
             ipinfo_api_key,
             assets_path,
             stats_password,
+            redact_ip_addresses,
             database_type,
             database_hostname,
             database_name,

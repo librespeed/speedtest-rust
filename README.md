@@ -138,6 +138,9 @@ Compatible with all librespeed clients :
 
     # password for logging into statistics page, fill this to enable stats page
     stats_password=""
+   
+    # redact IP addresses
+    redact_ip_addresses=false
 
     # database config for : mysql, postgres, sqlite, memory, or disable by write none
     # after restarting the service, the in-memory database is reset
