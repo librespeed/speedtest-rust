@@ -44,6 +44,7 @@ pub struct ServerConfig {
     pub ipinfo_api_key : String,
     pub stats_password : String,
     pub redact_ip_addresses : bool,
+    pub result_image_theme : String,
     pub assets_path : String,
     pub database_type : String,
     pub database_hostname : Option<String>,
@@ -66,6 +67,7 @@ impl Default for ServerConfig {
             ipinfo_api_key: "".to_string(),
             stats_password: "".to_string(),
             redact_ip_addresses: false,
+            result_image_theme: "light".to_string(),
             assets_path: "".to_string(),
             database_type: "none".to_string(),
             database_hostname: None,
@@ -194,6 +196,7 @@ fn initialize (mut config: ServerConfig,cmd : Cmd) -> std::io::Result<()> {
     config.assets_path.set_if_some(cmd.assets_path);
     config.stats_password.set_if_some(cmd.stats_password);
     config.redact_ip_addresses.set_if_some(cmd.redact_ip_addresses);
+    config.result_image_theme.set_if_some(cmd.result_image_theme);
     config.database_type.set_if_some(cmd.database_type);
     config.database_hostname.set_if_some(cmd.database_hostname);
     config.database_name.set_if_some(cmd.database_name);

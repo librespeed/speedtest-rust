@@ -141,6 +141,10 @@ Compatible with all librespeed clients :
    
     # redact IP addresses
     redact_ip_addresses=false
+   
+    # set telemetry result image theme : light, dark
+    # default is light
+    result_image_theme="light"
 
     # database config for : mysql, postgres, sqlite, memory, or disable by write none
     # after restarting the service, the in-memory database is reset

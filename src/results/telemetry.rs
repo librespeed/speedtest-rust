@@ -65,10 +65,33 @@ pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Da
     }
 }
 
+struct ImageTheme {
+    background : Rgb<u8>,
+    text_head : Rgb<u8>,
+    text_value : Rgb<u8>,
+    text_unit : Rgb<u8>,
+}
+fn get_theme(is_dark : bool) -> ImageTheme {
+    if is_dark {
+        ImageTheme {
+            background: Rgb([42,42,42]),
+            text_head: Rgb([255,255,255]),
+            text_value: Rgb([120,166,240]),
+            text_unit: Rgb([174,174,174]),
+        }
+    } else { 
+        ImageTheme {
+            background: Rgb([255,255,255]),
+            text_head: Rgb([0,0,0]),
+            text_value: Rgb([96,96,170]),
+            text_unit: Rgb([110,110,110]),
+        }
+    }
+}
 pub fn draw_result (data : &TelemetryData) -> Vec<u8> {
 
     fn cal_text_size (font : &FontRef,text : &str,scale : f32) -> (u32,u32) {
-        text_size(PxScale::from(scale),&font,text)
+        text_size(PxScale::from(scale),font,text)
     }
 
     //scales
@@ -113,7 +136,10 @@ pub fn draw_result (data : &TelemetryData) -> Vec<u8> {
 
     //drawing ....
     //background
-    draw_filled_rect_mut(&mut img,Rect::at(0,0).of_size(500,286),Rgb([255,255,255]));
+    let config = SERVER_CONFIG.get().unwrap();
+    let theme = get_theme(config.result_image_theme == "dark");
+
+    draw_filled_rect_mut(&mut img,Rect::at(0,0).of_size(500,286),theme.background);
 
     let width_quarter = img.width() / 4;
     let width_3_quarter = width_quarter * 3;
@@ -121,76 +147,76 @@ pub fn draw_result (data : &TelemetryData) -> Vec<u8> {
     //ping
     let mut x = width_quarter - (ping_text_size.0 / 2) + h_padding; // ping label
     let mut y = v_padding; // ping label
-    draw_text_mut(&mut img, Rgb([0, 0, 0]), x as i32, y as i32, PxScale::from(ping_jitter_name_scale), font, l_ping); // ping label
+    draw_text_mut(&mut img, theme.text_head, x as i32, y as i32, PxScale::from(ping_jitter_name_scale), font, l_ping); // ping label
 
     x = width_quarter - (ping_value_text_size.0 / 2) + h_padding - (ms_text_size.0 / 2); // ping value
     y = ping_text_size.1 + (v_padding * 2); // ping value
-    draw_text_mut(&mut img, Rgb([96, 96, 170]), x as i32, y as i32, PxScale::from(ping_jitter_value_scale), font, &data.ping); // ping value
+    draw_text_mut(&mut img, theme.text_value, x as i32, y as i32, PxScale::from(ping_jitter_value_scale), font, &data.ping); // ping value
 
     x = width_quarter + (ping_value_text_size.0 / 2) + unit_padding + h_padding - (ms_text_size.0 / 2); // ping unit
     y = ping_text_size.1 + (v_padding * 2) + ping_value_text_size.1 - ms_text_size.1; // ping unit
-    draw_text_mut(&mut img, Rgb([110,110,110]), x as i32, y as i32, PxScale::from(unit_scale), font, l_ms); // ping unit
+    draw_text_mut(&mut img, theme.text_unit, x as i32, y as i32, PxScale::from(unit_scale), font, l_ms); // ping unit
 
     //jitter
     x = width_3_quarter - (jitter_text_size.0 / 2) - h_padding; // jitter label
     y = v_padding; // jitter value
-    draw_text_mut(&mut img, Rgb([0, 0, 0]), x as i32, y as i32, PxScale::from(ping_jitter_name_scale), font, l_jitter); // jitter value
+    draw_text_mut(&mut img, theme.text_head, x as i32, y as i32, PxScale::from(ping_jitter_name_scale), font, l_jitter); // jitter value
 
     x = width_3_quarter - (jitter_value_text_size.0 / 2) - h_padding - (ms_text_size.0 / 2); // jitter value
     y = jitter_text_size.1 + (v_padding * 2); // jitter value
-    draw_text_mut(&mut img, Rgb([96, 96, 170]), x as i32, y as i32, PxScale::from(ping_jitter_value_scale), font, &data.jitter); // jitter value
+    draw_text_mut(&mut img, theme.text_value, x as i32, y as i32, PxScale::from(ping_jitter_value_scale), font, &data.jitter); // jitter value
 
     x = width_3_quarter + (jitter_value_text_size.0 / 2) + unit_padding - h_padding - (ms_text_size.0 / 2);// jitter unit
     y = jitter_text_size.1 + (v_padding * 2) + jitter_value_text_size.1 - ms_text_size.1;// jitter unit
-    draw_text_mut(&mut img, Rgb([110,110,110]), x as i32, y as i32, PxScale::from(unit_scale), font, l_ms);// jitter unit
+    draw_text_mut(&mut img, theme.text_unit, x as i32, y as i32, PxScale::from(unit_scale), font, l_ms);// jitter unit
 
     //download
     x = width_quarter - (download_text_size.0 / 2) + h_padding; // download label
     y = ping_text_size.1 + ping_value_text_size.1 + (v_padding * 6); // download label
-    draw_text_mut(&mut img, Rgb([0, 0, 0]), x as i32, y as i32, PxScale::from(d_u_name_scale), font, l_dl); // download label
+    draw_text_mut(&mut img, theme.text_head, x as i32, y as i32, PxScale::from(d_u_name_scale), font, l_dl); // download label
 
     x = width_quarter - (download_value_text_size.0 / 2) + h_padding;// download value
     y = ping_text_size.1 + ping_value_text_size.1 + download_text_size.1 + (v_padding * 7);// download value
-    draw_text_mut(&mut img, Rgb([96, 96, 170]), x as i32, y as i32, PxScale::from(d_u_value_scale), font, &data.download);// download value
+    draw_text_mut(&mut img, theme.text_value, x as i32, y as i32, PxScale::from(d_u_value_scale), font, &data.download);// download value
 
     x = width_quarter - (mbps_text_size.0 / 2) + h_padding;//download unit
     y = ping_text_size.1 + (unit_padding * 2) + ping_value_text_size.1 + download_text_size.1 + download_value_text_size.1 + (v_padding * 8);//download unit
-    draw_text_mut(&mut img, Rgb([110,110,110]), x as i32, y as i32, PxScale::from(unit_scale), font, l_mbps);//download unit
+    draw_text_mut(&mut img, theme.text_unit, x as i32, y as i32, PxScale::from(unit_scale), font, l_mbps);//download unit
 
     //upload
     x = width_3_quarter - (upload_text_size.0 / 2) - h_padding; // upload label
     y = jitter_text_size.1 + jitter_value_text_size.1 + (v_padding * 6); // upload label
-    draw_text_mut(&mut img, Rgb([0, 0, 0]), x as i32, y as i32, PxScale::from(d_u_name_scale), font, l_ul); // upload label
+    draw_text_mut(&mut img, theme.text_head, x as i32, y as i32, PxScale::from(d_u_name_scale), font, l_ul); // upload label
 
     x = width_3_quarter - (upload_value_text_size.0 / 2) - h_padding;// upload value
     y = jitter_text_size.1 + jitter_value_text_size.1 + upload_text_size.1 + (v_padding * 7);// upload value
-    draw_text_mut(&mut img, Rgb([96, 96, 170]), x as i32, y as i32, PxScale::from(d_u_value_scale), font, &data.upload);// upload value
+    draw_text_mut(&mut img, theme.text_value, x as i32, y as i32, PxScale::from(d_u_value_scale), font, &data.upload);// upload value
 
     x = width_3_quarter - (mbps_text_size.0 / 2) - h_padding;//upload unit
     y = jitter_text_size.1 + (unit_padding * 2) + jitter_value_text_size.1 + upload_text_size.1 + upload_value_text_size.1 + (v_padding * 8);//upload unit
-    draw_text_mut(&mut img, Rgb([110,110,110]), x as i32, y as i32, PxScale::from(unit_scale), font, l_mbps);//upload unit
+    draw_text_mut(&mut img, theme.text_unit, x as i32, y as i32, PxScale::from(unit_scale), font, l_mbps);//upload unit
 
     //isp_info
     x = unit_padding;
     y = img.height() - (watermark_text_size.1 * 2) - (unit_padding * 5);
     let isp_info : IPInfo = serde_json::from_str(&data.isp_info).unwrap();
-    draw_text_mut(&mut img,Rgb([40,40,40]),x as i32,y as i32,PxScale::from(footer_scale),font,&isp_info.processedString);
+    draw_text_mut(&mut img,theme.text_head,x as i32,y as i32,PxScale::from(footer_scale),font,&isp_info.processedString);
     drop(isp_info);
 
     //footer divider
     let divider_y = (img.height() - watermark_text_size.1 - (unit_padding * 3)) as f32;
-    draw_line_segment_mut(&mut img, (0.0, divider_y), (500f32, divider_y), Rgb([110,110,110]));
+    draw_line_segment_mut(&mut img, (0.0, divider_y), (500f32, divider_y), theme.text_unit);
 
     //watermark
     x = img.width() - watermark_text_size.0 - unit_padding;
     y = img.height() - watermark_text_size.1 - (unit_padding * 2);
-    draw_text_mut(&mut img,Rgb([110,110,110]),x as i32,y as i32,PxScale::from(footer_scale),font,l_watermark);
+    draw_text_mut(&mut img,theme.text_unit,x as i32,y as i32,PxScale::from(footer_scale),font,l_watermark);
 
     //time
     x = unit_padding;
     y = img.height() - watermark_text_size.1 - (unit_padding * 2);
     let time = convert_time_local(data.timestamp);
-    draw_text_mut(&mut img,Rgb([110,110,110]),x as i32,y as i32,PxScale::from(footer_scale),font,&time);
+    draw_text_mut(&mut img,theme.text_unit,x as i32,y as i32,PxScale::from(footer_scale),font,&time);
 
     let mut buffer: Cursor<Vec<u8>> = Cursor::new(Vec::new());
     if let Err(e) = img.write_to(&mut buffer, ImageFormat::Jpeg) {
