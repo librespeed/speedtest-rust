@@ -2,7 +2,7 @@ use std::sync::Arc;
 use handlebars::Handlebars;
 use serde_json::json;
 use tokio::sync::Mutex;
-use crate::config::SERVER_CONFIG;
+use crate::config::{time, SERVER_CONFIG};
 use crate::database::Database;
 use crate::http::cookie::{make_cookie, make_discard_cookie, validate_cookie};
 use crate::http::request::Request;
@@ -78,6 +78,7 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
     }
 
     let mut handlebars = Handlebars::new();
+    handlebars.register_helper("formatTimestamp",Box::new(time::convert_time_local_stats));
     handlebars.register_template_string("stats_page",HTML_TEMPLATE).unwrap();
     let data = json!({
         "no_password": no_password,
@@ -165,7 +166,7 @@ const HTML_TEMPLATE : &str = r#"
     {{#each telemetry_list}}
 	<table>
 		<tr><th>Test ID</th><td>{{ this.uuid }}</td></tr>
-		<tr><th>Date and time</th><td>{{ this.timestamp }}</td></tr>
+		<tr><th>Date and time</th><td>{{ formatTimestamp this.timestamp }}</td></tr>
 		<tr><th>IP and ISP Info</th><td>{{ this.ip_address }}<br/>{{ this.isp_info }}</td></tr>
 		<tr><th>User agent and locale</th><td>{{ this.user_agent }}<br/>{{ this.lang }}</td></tr>
 		<tr><th>Download speed</th><td>{{ this.download }}</td></tr>

@@ -1,10 +1,20 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Local};
+use handlebars::{Context, Handlebars, Helper, HelperResult, Output, RenderContext};
 
 pub fn convert_time_local (time : i64) -> String {
     let dt = DateTime::from_timestamp_millis(time).unwrap();
     let local : DateTime<Local> = DateTime::from(dt);
     local.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+pub fn convert_time_local_stats(helper : &Helper,_: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    let time = helper.param(0).unwrap().value().as_i64().unwrap();
+    let dt = DateTime::from_timestamp_millis(time).unwrap();
+    let local : DateTime<Local> = DateTime::from(dt);
+    let formatted_date = local.format("%Y-%m-%d %H:%M:%S").to_string();
+    out.write(formatted_date.as_str())?;
+    Ok(())
 }
 
 pub fn current_formatted_time() -> String {
