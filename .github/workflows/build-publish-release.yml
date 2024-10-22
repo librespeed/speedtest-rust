@@ -160,9 +160,9 @@ jobs:
               else \
                   echo "Unsupported platform: \$TARGETPLATFORM" && exit 1; \
               fi
-          RUN rm -rf binary/
+          RUN rm -rf binary/; chmod +x librespeed-rs;
           EXPOSE 8080
-          ENTRYPOINT ["/usr/local/bin/librespeed-rs"]
+          ENTRYPOINT ["librespeed-rs"]
           EOF
         
       - name: Build container image
