@@ -140,7 +140,7 @@ jobs:
         run: |
           # Create a Containerfile dynamically to ensure all elements are correctly included
           cat <<EOF > Containerfile
-          FROM alpine
+          FROM debian:12-slim
           WORKDIR /usr/local/bin
           # Use the Docker TARGETPLATFORM to pass in the platform being built
           ARG TARGETPLATFORM
