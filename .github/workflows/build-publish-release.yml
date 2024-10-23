@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build:
@@ -113,6 +114,67 @@ jobs:
           name: librespeed-rs-${{ matrix.target }}
           path: librespeed-rs-${{ matrix.target }}
 
+  container-build-push:
+    name: Build and push Container image
+    runs-on: ubuntu-latest
+    needs: build
+  
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create the Containerfile
+        run: |
+          # Create a Containerfile dynamically to ensure all elements are correctly included
+          cat <<EOF > Containerfile
+          FROM debian:12-slim
+          WORKDIR /usr/local/bin
+          # Use the Docker TARGETPLATFORM to pass in the platform being built
+          ARG TARGETPLATFORM
+          RUN mkdir -p binary
+          COPY configs.toml configs.toml
+          COPY assets assets
+          COPY librespeed-rs-x86_64-unknown-linux-gnu binary/librespeed-rs-x86_64-unknown-linux-gnu
+          COPY librespeed-rs-aarch64-unknown-linux-gnu binary/librespeed-rs-aarch64-unknown-linux-gnu
+          COPY librespeed-rs-armv7-unknown-linux-gnueabihf binary/librespeed-rs-armv7-unknown-linux-gnueabihf
+          # Match the correct binary based on the platform
+          RUN if [ "\$TARGETPLATFORM" = "linux/amd64" ]; then \
+                  cp binary/librespeed-rs-x86_64-unknown-linux-gnu/librespeed-rs librespeed-rs; \
+              elif [ "\$TARGETPLATFORM" = "linux/arm64" ]; then \
+                  cp binary/librespeed-rs-aarch64-unknown-linux-gnu/librespeed-rs librespeed-rs; \
+              elif [ "\$TARGETPLATFORM" = "linux/arm/v7" ]; then \
+                  cp binary/librespeed-rs-armv7-unknown-linux-gnueabihf/librespeed-rs librespeed-rs; \
+              else \
+                  echo "Unsupported platform: \$TARGETPLATFORM" && exit 1; \
+              fi
+          RUN rm -rf binary/; chmod +x librespeed-rs;
+          EXPOSE 8080
+          ENTRYPOINT ["librespeed-rs"]
+          EOF
+        
+      - name: Build container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          file: ./Containerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+
+  
   release:
     needs: [build]
     name: Publish release
