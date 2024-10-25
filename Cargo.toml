@@ -7,7 +7,7 @@ description = "Rust backend for LibreSpeed"
 
 [dependencies]
 #async net
-tokio = {version = "1.40.0", features = ["net","io-util","rt","macros","rt-multi-thread"]}
+tokio = {version = "1.41.0", features = ["net","io-util","rt","macros","rt-multi-thread"]}
 tokio-rustls = {version = "0.26.0", features = ["tls12","ring"], default-features = false}
 webpki-roots = "0.26.6"
 rustls-pemfile = "2.2.0"
@@ -18,10 +18,10 @@ maxminddb = "0.24.0"
 imageproc = "0.25.0"
 ab_glyph = "0.2.28"
 #serializer
-serde_json = "1.0.128"
-serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.132"
+serde = { version = "1.0.213", features = ["derive"] }
 #databases
-uuid = { version = "1.10.0", features = ["v4"] }
+uuid = { version = "1.11.0", features = ["v4"] }
 chrono = "0.4.38"
 mysql = { version = "25.0.1",default-features = false }
 postgres = "0.19.9"
