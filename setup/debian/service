@@ -1,0 +1,15 @@
+Description=librespeed rust backend
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/librespeed-rs
+WorkingDirectory=/var/lib/librespeed-rs/
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=%n
+
+[Install]
+WantedBy=multi-user.target

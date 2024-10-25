@@ -39,6 +39,17 @@ indicatif = "0.17.8"
 #assets
 include_dir = "0.7.4"
 
+[package.metadata.deb]
+maintainer-scripts = "setup/debian/"
+systemd-units = { enable = false }
+revision = ""
+assets = [
+    ["target/release/librespeed-rs","/usr/bin/librespeed-rs","755"],
+    ["assets/*","/var/lib/librespeed-rs/assets","644"],
+    ["configs.toml","/var/lib/librespeed-rs/configs.toml","644"],
+    ["country_asn.mmdb","/var/lib/librespeed-rs/country_asn.mmdb","644"]
+]
+
 [profile.release]
 codegen-units = 1
 opt-level = "z"

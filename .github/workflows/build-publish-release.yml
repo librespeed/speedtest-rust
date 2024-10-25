@@ -23,43 +23,51 @@ jobs:
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             sys-type: linux
+            package-deb: yes
 
           - build: linux-aarch64-gnu
             os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
             sys-type: linux
+            package-deb: yes
 
           - build: linux-i686-gnu
             os: ubuntu-20.04
             target: i686-unknown-linux-gnu
             sys-type: linux
+            package-deb: yes
 
           - build: linux-armv7-gnueabihf
             os: ubuntu-20.04
             target: armv7-unknown-linux-gnueabihf
             sys-type: linux
+            package-deb: no
 
           - build: linux-64-musl
             os: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             sys-type: linux
+            package-deb: no
 
           # win
           - build: windows
             os: windows-latest
             target: i686-pc-windows-msvc
             sys-type: windows
+            package-deb: no
 
           - build: windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
             sys-type: windows
+            package-deb: no
 
           # mac
           - build: mac-os-64
             os: macos-latest
             target: x86_64-apple-darwin
             sys-type: mac
+            package-deb: no
 
     steps:
       - name: Checkout
@@ -84,8 +92,19 @@ jobs:
             sudo apt-get install -y musl-tools
           fi
 
+      - name: Install cargo deb packager
+        if: matrix.package-deb == 'yes'
+        shell: bash
+        run: cargo install cargo-deb
+
       - name: Running cargo build
-        run: cargo build --release --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-deb }}" = "yes" ]; then
+            cargo deb -v --output=target/debian/librespeed-rs-${{ matrix.target }}.deb --target=${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
 
 #      - name: Build
 #        uses: actions-rs/cargo@v1
@@ -105,6 +124,11 @@ jobs:
             mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
           else
             mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
+            if [ "${{ matrix.package-deb }}" = "yes" ]; then
+              deb_dirname="deb-$dirname"
+              mkdir "$deb_dirname"
+              mv "target/debian/librespeed-rs-${{ matrix.target }}.deb" "$deb_dirname"
+            fi
           fi
 
       - name: Upload artifacts
@@ -113,6 +137,14 @@ jobs:
           overwrite: true
           name: librespeed-rs-${{ matrix.target }}
           path: librespeed-rs-${{ matrix.target }}
+
+      - name: Upload deb artifacts
+        if : matrix.package-deb == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: deb-librespeed-rs-${{ matrix.target }}
+          path: deb-librespeed-rs-${{ matrix.target }}
 
   container-build-push:
     name: Build and push Container image
@@ -189,6 +221,16 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
 
+      - name: Move deb files & clear deb folders
+        shell: bash
+        run: |
+          for dir in */; do
+            if [[ "$dir" == deb-* ]]; then
+              mv "$dir"* .
+              rm -rf "$dir"
+            fi
+          done
+
       - name: Copy files & build archives
         shell: bash
         run: |
@@ -211,7 +253,7 @@ jobs:
             echo "$checksum : $filename" >> checksums.txt
           }
           rm -f checksums.txt
-          find . -type f -name '*.xz' -or -name '*.zip' | while read file; do
+          find . -type f -name '*.xz' -or -name '*.zip' -or -name '*.deb' | while read file; do
             md5sum_file "$file"
           done
 
@@ -227,4 +269,5 @@ jobs:
           files: |
             *.zip
             *.xz
+            *.deb
             checksums.txt
