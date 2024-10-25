@@ -1,3 +1,13 @@
+## Version v1.3.6
+
+### What's changed (fixes) ?
+
+- Added support redacting ip addresses
+- Added support for result image themes
+- Updated CI pipeline to publish Docker images to GHCR, Thanks to @mickkael #9
+- Updated CI pipeline to build deb package for easier use in Debian based Linuxes
+- Fix show human-readable datetime in stat page, Reported by @shraik #11
+
 ## Version v1.3.4
 
 ### What's changed (fixes) ?
