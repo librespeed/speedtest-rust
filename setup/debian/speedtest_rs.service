@@ -1,9 +1,11 @@
+[Unit]
 Description=librespeed rust backend
-After=network.target
+Requires=speedtest_rs.socket
+After=network.target speedtest_rs.socket
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/librespeed-rs
+ExecStart=/usr/bin/librespeed-rs -c /var/lib/librespeed-rs/configs.toml
 WorkingDirectory=/var/lib/librespeed-rs/
 Restart=always
 RestartSec=10

@@ -1,0 +1,9 @@
+[Unit]
+Description=librespeed rust backend (socket)
+PartOf=speedtest_rs.service
+
+[Socket]
+ListenStream=8080
+
+[Install]
+WantedBy=sockets.target

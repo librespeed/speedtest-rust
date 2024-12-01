@@ -41,14 +41,16 @@ indicatif = "0.17.9"
 include_dir = "0.7.4"
 
 [package.metadata.deb]
-maintainer-scripts = "setup/debian/"
+maintainer-scripts = "setup/debian/scripts/"
 systemd-units = { enable = false }
 revision = ""
 assets = [
     ["target/release/librespeed-rs","/usr/bin/librespeed-rs","755"],
     ["assets/*","/var/lib/librespeed-rs/assets","644"],
     ["configs.toml","/var/lib/librespeed-rs/configs.toml","644"],
-    ["country_asn.mmdb","/var/lib/librespeed-rs/country_asn.mmdb","644"]
+    ["country_asn.mmdb","/var/lib/librespeed-rs/country_asn.mmdb","644"],
+    ["setup/debian/speedtest_rs.service","/lib/systemd/system/speedtest_rs.service","644"],
+    ["setup/debian/speedtest_rs.socket","/lib/systemd/system/speedtest_rs.socket","644"]
 ]
 
 [profile.release]
