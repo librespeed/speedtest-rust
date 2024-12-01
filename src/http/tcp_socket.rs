@@ -1,22 +1,55 @@
+use crate::config::ServerConfig;
 use core::fmt;
+use socket2::{Domain, Type};
 use std::fmt::Formatter;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use socket2::{Domain, Type};
 use tokio::net::{TcpListener, TcpStream};
-use crate::config::ServerConfig;
 
 pub struct TcpSocket {
-    tcp_listener: TcpListener,
-    addr : TcpAddr
+    tcp_listeners: Vec<TcpListener>,
+    addrs: Vec<TcpAddr>,
+    from_sys: bool,
 }
 
 impl TcpSocket {
-    pub fn bind(config: &ServerConfig) -> io::Result<TcpSocket> {
-        let tcp_addr = TcpAddr::new(config)?;
-        let socket = socket2::Socket::new(tcp_addr.domain,Type::STREAM,None)?;
+    pub fn make_listener(config: &ServerConfig) -> io::Result<TcpSocket> {
+        let fd_listeners = Self::find_fd_listeners()?;
+        let (tcp_listeners, tcp_addr, from_sys) = if !fd_listeners.0.is_empty() {
+            (fd_listeners.0, fd_listeners.1, true)
+        } else {
+            let tcp_addr = TcpAddr::from_config(config)?;
+            (vec![Self::bind(&tcp_addr)?], vec![tcp_addr], false)
+        };
+        Ok(TcpSocket {
+            tcp_listeners,
+            addrs: tcp_addr,
+            from_sys,
+        })
+    }
+
+    fn find_fd_listeners() -> io::Result<(Vec<TcpListener>, Vec<TcpAddr>)> {
+        let mut listen_fd = listenfd::ListenFd::from_env();
+        let mut fd_listeners = Vec::new();
+        let mut addrs = Vec::new();
+        if listen_fd.len() > 0 {
+            for index in 0..listen_fd.len() {
+                if let Ok(Some(listener)) = listen_fd.take_tcp_listener(index) {
+                    listener.set_nonblocking(true)?; // PLD Point
+                    let tcp_listener = TcpListener::from_std(listener)?;
+                    addrs.push(TcpAddr::from_socket(&tcp_listener)?);
+                    fd_listeners.push(tcp_listener);
+                }
+            }
+            return Ok((fd_listeners, addrs));
+        }
+        Ok((Vec::new(), Vec::new()))
+    }
+
+    fn bind(tcp_addr: &TcpAddr) -> io::Result<TcpListener> {
+        let socket = socket2::Socket::new(tcp_addr.domain, Type::STREAM, None)?;
         if !tcp_addr.is_only_v6 {
             socket.set_only_v6(false)?;
         }
@@ -24,21 +57,39 @@ impl TcpSocket {
         socket.bind(&tcp_addr.sock_addr.into())?;
         socket.listen(128)?;
         let tcp_listener = TcpListener::from_std(socket.into())?;
-        Ok(TcpSocket {
-            tcp_listener,
-            addr : tcp_addr
-        })
+        Ok(tcp_listener)
     }
 
-    pub async fn accept (&self) -> io::Result<(TcpStream, SocketAddr)> {
-        self.tcp_listener.accept().await
+    pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
+        for listener in &self.tcp_listeners {
+            tokio::select! {
+                result = listener.accept() => {
+                    let (stream, addr) = result?;
+                    return Ok((stream,addr));
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(1)) => {}
+            }
+        }
+        Err(Error::new(ErrorKind::Other, "No listeners found."))
     }
-
 }
 
 impl fmt::Display for TcpSocket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}",self.addr.sock_addr)
+        match self.from_sys {
+            true => {
+                for (i, addr) in self.addrs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", addr.sock_addr)?;
+                }
+                Ok(())
+            }
+            false => {
+                write!(f, "{}", self.addrs[0].sock_addr)
+            }
+        }
     }
 }
 
@@ -50,24 +101,46 @@ pub struct TcpAddr {
 }
 
 impl TcpAddr {
-    pub fn new(config: &ServerConfig) -> io::Result<Self> {
+    pub fn from_config(config: &ServerConfig) -> io::Result<Self> {
         let bind_addr = config.bind_address.as_str();
-        let parse_addr = Self::parse_addr(bind_addr)?;
-        let addr = SocketAddr::new(parse_addr.0, config.listen_port);
+        let parsed_addr = bind_addr.parse_addr()?;
+        let addr = SocketAddr::new(parsed_addr.0, config.listen_port);
         Ok(TcpAddr {
             sock_addr: addr,
-            domain: parse_addr.1,
+            domain: parsed_addr.1,
             is_only_v6: bind_addr != "::" && bind_addr != "::0",
         })
     }
 
-    fn parse_addr(ip_str: &str) -> io::Result<(IpAddr, Domain)> {
-        match IpAddr::from_str(ip_str) {
+    pub fn from_socket(listener: &TcpListener) -> io::Result<Self> {
+        let socket_addr = listener.local_addr()?;
+        let parsed_addr = socket_addr.parse_addr()?;
+        Ok(TcpAddr {
+            sock_addr: socket_addr,
+            domain: parsed_addr.1,
+            is_only_v6: false,
+        })
+    }
+}
+
+trait IpParser {
+    fn parse_addr(&self) -> io::Result<(IpAddr, Domain)>;
+}
+
+impl IpParser for &str {
+    fn parse_addr(&self) -> io::Result<(IpAddr, Domain)> {
+        match IpAddr::from_str(self) {
             Ok(ip) => match ip {
                 IpAddr::V4(_) => Ok((ip, Domain::IPV4)),
                 IpAddr::V6(_) => Ok((ip, Domain::IPV6)),
             },
             Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
+    }
+}
+
+impl IpParser for SocketAddr {
+    fn parse_addr(&self) -> io::Result<(IpAddr, Domain)> {
+        Ok((self.ip(), if self.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }))
     }
 }

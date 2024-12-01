@@ -12,6 +12,7 @@ tokio-rustls = {version = "0.26.0", features = ["tls12","ring"], default-feature
 webpki-roots = "0.26.7"
 rustls-pemfile = "2.2.0"
 socket2 = "0.5.8"
+listenfd = "1.0.1"
 #ip
 maxminddb = "0.24.0"
 #image processing

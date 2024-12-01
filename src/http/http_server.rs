@@ -24,7 +24,7 @@ impl HttpServer {
 
     pub async fn init () -> std::io::Result<Self> {
         let config = SERVER_CONFIG.get().unwrap();
-        let tcp_socket = TcpSocket::bind(config)?;
+        let tcp_socket = TcpSocket::make_listener(config)?;
         info!("Server started on {}",tcp_socket.to_string());
         info!("Server base url : {}/",config.base_url);
         let mut tls_acceptor = None;
