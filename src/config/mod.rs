@@ -95,6 +95,7 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
         Builder::new_multi_thread()
             .thread_name("librespeed-rs")
             .worker_threads(worker_threads)
+            .enable_time()
             .enable_io()
             .build()
     }
