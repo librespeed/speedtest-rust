@@ -1,19 +1,29 @@
-use std::io::{Error, ErrorKind};
-use rusqlite::{Connection, Row};
-use crate::database::{Database, DBRawToStruct};
+use crate::database::{DBRawToStruct, Database};
 use crate::results::TelemetryData;
+use rusqlite::{Connection, Row};
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 
 pub struct SQLite {
     pub connection: Connection,
 }
 
-pub fn init (database_file : &Option<String>) -> std::io::Result<Connection> {
+pub fn init(database_file: &Option<String>) -> std::io::Result<Connection> {
     match database_file {
-        None => {
-            Err(Error::new(ErrorKind::Other,"Error setup sqlite invalid database file."))
-        }
+        None => Err(Error::new(
+            ErrorKind::Other,
+            "Error setup sqlite invalid database file.",
+        )),
         Some(database_file) => {
-            let connection = Connection::open(database_file);
+            let mut database_path = PathBuf::from(database_file);
+            if !database_path.is_absolute() {
+                database_path = PathBuf::from(std::env::current_dir().unwrap().join(database_file));
+            }
+
+            // attempt to create the parent directory and ignore errors if it already exists
+            let _ = std::fs::create_dir_all(database_path.parent().unwrap());
+
+            let connection = Connection::open(database_path);
             match connection {
                 Ok(connection) => {
                     let create_table = connection.execute(
