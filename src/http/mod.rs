@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use tokio::net::TcpStream;
 use std::fs::File;
 use std::io::Read;
+use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 use crate::config::{DEF_ASSETS, SERVER_CONFIG};
 
 pub mod http_server;
@@ -108,4 +110,31 @@ macro_rules! make_route {
             format!("{}{}",base_url,$a)
         }
     };
+}
+
+#[derive(Eq, Debug, Clone)]
+pub struct UniCaseString(String);
+
+impl From<String> for UniCaseString {
+    fn from(value: String) -> Self {
+        UniCaseString(value)
+    }
+}
+
+impl Borrow<str> for UniCaseString {
+    fn borrow(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl PartialEq for UniCaseString {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_lowercase() == other.0.to_lowercase()
+    }
+}
+
+impl Hash for UniCaseString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_lowercase().hash(state);
+    }
 }
