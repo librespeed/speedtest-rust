@@ -4,7 +4,7 @@ use std::pin::Pin;
 use log::trace;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use crate::config::GARBAGE_DATA;
-use crate::http::{Method, MethodStr};
+use crate::http::{Method, MethodStr, UniCaseString};
 use crate::http::response::Response;
 
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub struct Request {
     pub method: Method,
     pub remote_addr : String,
     pub query_params: HashMap<String, String>,
-    pub headers: HashMap<String, String>,
+    pub headers: HashMap<UniCaseString, String>,
     pub form_data : HashMap<String, String>
 }
 
@@ -189,7 +189,7 @@ fn hex_string_to_int(hex_string: &str) -> Option<u64> {
     }
 }
 
-pub async fn header_parser<R>(buf_reader: &mut BufReader<R>) -> HashMap<String,String>
+pub async fn header_parser<R>(buf_reader: &mut BufReader<R>) -> HashMap<UniCaseString,String>
 where
     R: AsyncReadExt + Unpin
 {
@@ -201,7 +201,7 @@ where
             } else {
                 let mut header_parts = header_line.splitn(2, ':');
                 if let (Some(header_key),Some(header_val)) = (header_parts.next(),header_parts.next()) {
-                    headers_out.insert(header_key.trim().to_string(),header_val.trim().to_string());
+                    headers_out.insert(header_key.trim().to_string().into(),header_val.trim().to_string());
                 }
             }
         } else {
@@ -211,7 +211,7 @@ where
     headers_out
 }
 
-fn check_has_body(headers : &HashMap<String,String>) -> (Option<BodyType>,Option<u64>) {
+fn check_has_body(headers : &HashMap<UniCaseString,String>) -> (Option<BodyType>,Option<u64>) {
     let content_type_form = if let Some(content_type) = headers.get("Content-Type") {
         if content_type.starts_with("multipart/form-data;") {
             Some(BodyType::Form)
@@ -279,7 +279,7 @@ fn clear_path_end_slash(input: &str) -> &str {
     }
 }
 
-fn trust_addr_proxy(headers : &HashMap<String,String>,remote_addr : &str) -> String {
+fn trust_addr_proxy(headers : &HashMap<UniCaseString,String>,remote_addr : &str) -> String {
     if let Some(remote_ip) = headers.get("X-Real-IP") {
         remote_ip.to_string()
     } else {
