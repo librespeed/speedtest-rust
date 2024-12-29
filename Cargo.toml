@@ -39,6 +39,7 @@ log = "0.4.22"
 indicatif = "0.17.9"
 #assets
 include_dir = "0.7.4"
+case_insensitive_hashmap = "1.0.1"
 
 [package.metadata.deb]
 maintainer-scripts = "setup/debian/scripts/"
