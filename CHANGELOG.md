@@ -1,3 +1,10 @@
+## Version v1.3.7
+
+### What's changed (fixes) ?
+
+- Fixed remote addr (on Caddy reverse proxy) problem, Thanks to @jonirrings #16
+- Added support systemd socket activator, Reported by @drewwells #14
+
 ## Version v1.3.6
 
 ### What's changed (fixes) ?
