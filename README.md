@@ -13,7 +13,7 @@ Compatible with all librespeed clients :
 - Web Client
 - [Command line client](https://github.com/librespeed/speedtest-cli)
 - [Android client](https://github.com/librespeed/speedtest-android)
-- [desktop client](https://github.com/librespeed/speedtest-desktop)
+- [Desktop client](https://github.com/librespeed/speedtest-desktop)
 
 ## Attributes
 - Memory safety (uses `#![forbid(unsafe_code)]` to ensure everything is implemented in 100% safe Rust.)
@@ -55,7 +55,7 @@ Therefore, your PRs are accepted to improve and solve problems
 
 ## License
 Copyright (C) 2016-2024 Federico Dossena\
-Copyright (C) 2024 Sudo Dios
+Copyright (C) 2024-2025 Sudo Dios
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
