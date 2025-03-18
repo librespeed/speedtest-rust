@@ -87,6 +87,7 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
     if worker_threads.is_string() && worker_threads == "auto" {
         Builder::new_multi_thread()
             .thread_name("librespeed-rs")
+            .enable_time()
             .enable_io()
             .build()
     } else {
