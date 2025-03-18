@@ -56,6 +56,7 @@ impl TcpSocket {
         socket.set_reuse_address(true)?;
         socket.bind(&tcp_addr.sock_addr.into())?;
         socket.listen(128)?;
+        socket.set_nonblocking(true)?;
         let tcp_listener = TcpListener::from_std(socket.into())?;
         Ok(tcp_listener)
     }
