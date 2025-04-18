@@ -7,6 +7,7 @@ use std::io::{Error, ErrorKind};
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio::net::{TcpListener, TcpStream};
+use futures::future::select_all;
 
 pub struct TcpSocket {
     tcp_listeners: Vec<TcpListener>,
@@ -62,16 +63,18 @@ impl TcpSocket {
     }
 
     pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
-        for listener in &self.tcp_listeners {
-            tokio::select! {
-                result = listener.accept() => {
-                    let (stream, addr) = result?;
-                    return Ok((stream,addr));
-                }
-                _ = tokio::time::sleep(std::time::Duration::from_millis(1)) => {}
-            }
+        if self.tcp_listeners.is_empty() {
+            return Err(Error::new(
+                ErrorKind::NotConnected,
+                "No listeners found.",
+            ));
         }
-        Err(Error::new(ErrorKind::Other, "No listeners found."))
+    
+        let accept_futures = self.tcp_listeners.iter().map(|listener| {
+            Box::pin(listener.accept())
+        });
+        let (result, _index, _remaining) = select_all(accept_futures).await;
+        result // result of the first future to complete
     }
 }
 
