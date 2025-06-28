@@ -1,5 +1,5 @@
 use std::net::IpAddr;
-use maxminddb::{MaxMindDBError, Reader};
+use maxminddb::{MaxMindDbError, Reader};
 use serde::Deserialize;
 use crate::ip::mmdb::mmdb_record::{MMDBRecord, MMDBResult};
 
@@ -15,11 +15,11 @@ impl MMDBReader {
             None
         }
     }
-    fn raw_lookup<'a, T: Deserialize<'a>>(&'a self, ip: IpAddr) -> Result<T, MaxMindDBError> {
+    fn raw_lookup<'a, T: Deserialize<'a>>(&'a self, ip: IpAddr) -> Result<Option<T>, MaxMindDbError> {
         self.reader.lookup(ip)
     }
     pub fn lookup(&mut self,address: &str) -> Option<MMDBResult> {
-        if let Ok(result ) = self.raw_lookup::<MMDBRecord>(address.parse().unwrap()) {
+        if let Ok(Some(result)) = self.raw_lookup::<MMDBRecord>(address.parse().unwrap()) {
             return Some(result.get_result())
         }
         None

@@ -7,15 +7,15 @@ description = "Rust backend for LibreSpeed"
 
 [dependencies]
 #async net
-tokio = {version = "1.44.1", features = ["net","io-util","rt","macros","rt-multi-thread"]}
+tokio = {version = "1.45.1", features = ["net","io-util","rt","macros","rt-multi-thread"]}
 tokio-rustls = {version = "0.26.2", features = ["tls12","ring"], default-features = false}
-webpki-roots = "0.26.8"
+webpki-roots = "1.0.1"
 rustls-pemfile = "2.2.0"
-socket2 = "0.5.8"
+socket2 = "0.5.10"
 listenfd = "1.0.2"
 futures = "0.3.31"
 #ip
-maxminddb = "0.25.0"
+maxminddb = "0.26.0"
 #image processing
 imageproc = "0.25.0"
 ab_glyph = "0.2.28"
@@ -23,20 +23,20 @@ ab_glyph = "0.2.28"
 serde_json = "1.0.140"
 serde = { version = "1.0.219", features = ["derive"] }
 #databases
-uuid = { version = "1.16.0", features = ["v4"] }
-chrono = "0.4.40"
+uuid = { version = "1.17.0", features = ["v4"] }
+chrono = "0.4.41"
 mysql = { version = "26.0.0",default-features = false }
 postgres = "0.19.10"
-rusqlite = { version = "0.34.0",features = ["bundled"] }
+rusqlite = { version = "0.36.0",features = ["bundled"] }
 #conf
-clap = { version = "4.5.32",features = ["std","color","help","usage"],default-features = false }
-toml = "0.8.20"
+clap = { version = "4.5.40",features = ["std","color","help","usage"],default-features = false }
+toml = "0.8.23"
 #web
 sha2 = "0.10.8"
 handlebars = "6.3.2"
 #logging
-env_logger = { version = "0.11.7",default-features = false,features = ["auto-color","humantime"] }
-log = "0.4.26"
+env_logger = { version = "0.11.8",default-features = false,features = ["auto-color","humantime"] }
+log = "0.4.27"
 indicatif = "0.17.11"
 #assets
 include_dir = "0.7.4"
