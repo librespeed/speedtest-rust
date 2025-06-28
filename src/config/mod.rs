@@ -90,14 +90,17 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
             .enable_io()
             .build()
     } else {
-        let mut worker_threads = worker_threads.as_u64().unwrap_or(1) as usize;
-        if worker_threads == 0 { worker_threads = 1 }
-        Builder::new_multi_thread()
-            .thread_name("librespeed-rs")
-            .worker_threads(worker_threads)
-            .enable_time()
-            .enable_io()
-            .build()
+        let worker_threads = worker_threads.as_u64().unwrap_or(1) as usize;
+        match worker_threads {
+            0 | 1 => Builder::new_current_thread()
+                .enable_io()
+                .build(),
+            _ => Builder::new_multi_thread()
+                .thread_name("librespeed-rs")
+                .worker_threads(worker_threads)
+                .enable_io()
+                .build(),
+        }
     }
 }
 
