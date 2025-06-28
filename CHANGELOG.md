@@ -1,3 +1,12 @@
+## Version v1.3.8
+
+### What's changed (fixes) ?
+
+- Set std_listener to non-blocking mode, Thanks to @lxb007981 #21
+- Use future::select_all for accept incoming packets, Thanks to @lxb007981 #24
+- Use current thread runtime for single worker, Thanks to @ambyjkl #25
+- Fixed windows build not working on single thread worker, Reported by @oldominion #23
+
 ## Version v1.3.7
 
 ### What's changed (fixes) ?
