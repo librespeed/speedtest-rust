@@ -20,25 +20,25 @@ jobs:
 
           # linux
           - build: linux-64-gnu
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             sys-type: linux
             package-deb: yes
 
           - build: linux-aarch64-gnu
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             sys-type: linux
             package-deb: yes
 
           - build: linux-i686-gnu
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: i686-unknown-linux-gnu
             sys-type: linux
             package-deb: yes
 
           - build: linux-armv7-gnueabihf
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
             sys-type: linux
             package-deb: no
