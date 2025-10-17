@@ -3,4 +3,3 @@ speedtest.db
 target
 build_script
 docker-compose.override.yml
-Cargo.lock
