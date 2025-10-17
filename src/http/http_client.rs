@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Error, ErrorKind};
+use std::io::{Error};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use serde_json::Value;
@@ -118,8 +118,8 @@ impl HttpClient {
                 let parsed_headers = header_parser(buf_reader).await;
                 //read body
                 let body_len = parsed_headers.get("Content-Length");
-                if body_len.is_some() {
-                    let body_len = body_len.unwrap().parse::<usize>().unwrap();
+                if let Some(body_len) = body_len {
+                    let body_len = body_len.parse::<usize>().unwrap();
                     let pb = ProgressBar::new(body_len as u64);
                     pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
                         .unwrap()
@@ -152,7 +152,7 @@ impl HttpClient {
             let port = if scheme == "https" { 443 } else { 80 };
             Ok((scheme.to_string(),host.to_string(),port,path.to_string()))
         } else {
-            Err(Error::new(ErrorKind::Other,"Error parsing input url"))
+            Err(Error::other("Error parsing input url"))
         }
     }
 

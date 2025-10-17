@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use rusqlite::{Connection, Row};
 use crate::database::{Database, DBRawToStruct};
 use crate::results::TelemetryData;
@@ -10,7 +10,7 @@ pub struct SQLite {
 pub fn init (database_file : &Option<String>) -> std::io::Result<Connection> {
     match database_file {
         None => {
-            Err(Error::new(ErrorKind::Other,"Error setup sqlite invalid database file."))
+            Err(Error::other("Error setup sqlite invalid database file."))
         }
         Some(database_file) => {
             let connection = Connection::open(database_file);
@@ -39,12 +39,12 @@ pub fn init (database_file : &Option<String>) -> std::io::Result<Connection> {
                             Ok(connection)
                         }
                         Err(e) => {
-                            Err(Error::new(ErrorKind::Other,format!("Error setup sqlite {:?}",e)))
+                            Err(Error::other(format!("Error setup sqlite {:?}",e)))
                         }
                     }
                 }
                 Err(e) => {
-                    Err(Error::new(ErrorKind::Other,format!("Error setup sqlite {:?}",e)))
+                    Err(Error::other(format!("Error setup sqlite {:?}",e)))
                 }
             }
         }
@@ -83,7 +83,7 @@ impl Database for SQLite {
                 Ok(())
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error insert sqlite {:?}", e)))
+                Err(Error::other(format!("Error insert sqlite {:?}", e)))
             }
         }
     }
@@ -103,7 +103,7 @@ impl Database for SQLite {
                 }
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select sqlite {:?}", e)))
+                Err(Error::other(format!("Error select sqlite {:?}", e)))
             }
         }
     }
@@ -124,7 +124,7 @@ impl Database for SQLite {
                 }
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select sqlite {:?}", e)))
+                Err(Error::other(format!("Error select sqlite {:?}", e)))
             }
         }
     }

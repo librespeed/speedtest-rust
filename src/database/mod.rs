@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::sync::Arc;
 use log::info;
 use tokio::sync::Mutex;
@@ -59,7 +59,7 @@ pub fn init () -> std::io::Result<Arc<Mutex<dyn Database + Send>>> {
             Ok(Arc::new(Mutex::new(NoneDB)))
         }
         _ => {
-            Err(Error::new(ErrorKind::Other,"Invalid database type."))
+            Err(Error::other("Invalid database type."))
         }
     }
 }

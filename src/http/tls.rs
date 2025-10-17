@@ -36,7 +36,7 @@ fn open_file_buf(path : &str,err_msg : &str) -> std::io::Result<File> {
     if let Ok(file) = File::open(path) {
         Ok(file)
     } else {
-        Err(Error::new(ErrorKind::Other,err_msg))
+        Err(Error::other(err_msg))
     }
 }
 
@@ -46,5 +46,5 @@ fn load_certs(path: &str) -> std::io::Result<Vec<CertificateDer<'static>>> {
 
 fn load_key(path: &str) -> std::io::Result<PrivateKeyDer<'static>> {
     private_key(&mut BufReader::new(open_file_buf(path,"Failed to load tls key file")?)).unwrap()
-        .ok_or(Error::new(ErrorKind::Other, "Failed to load tls key file".to_string()))
+        .ok_or(Error::other("Failed to load tls key file".to_string()))
 }

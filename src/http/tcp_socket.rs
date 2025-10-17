@@ -138,7 +138,7 @@ impl IpParser for &str {
                 IpAddr::V4(_) => Ok((ip, Domain::IPV4)),
                 IpAddr::V6(_) => Ok((ip, Domain::IPV6)),
             },
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            Err(e) => Err(Error::other(e)),
         }
     }
 }

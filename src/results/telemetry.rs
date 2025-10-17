@@ -1,4 +1,4 @@
-use std::io::{Cursor, Error, ErrorKind};
+use std::io::{Cursor, Error};
 use std::sync::Arc;
 
 use ab_glyph::{FontRef, PxScale};
@@ -60,7 +60,7 @@ pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Da
             Ok(uuid)
         }
         Err(e) => {
-            Err(Error::new(ErrorKind::Other,e))
+            Err(Error::other(e))
         }
     }
 }
@@ -220,7 +220,7 @@ pub fn draw_result (data : &TelemetryData) -> Vec<u8> {
 
     let mut buffer: Cursor<Vec<u8>> = Cursor::new(Vec::new());
     if let Err(e) = img.write_to(&mut buffer, ImageFormat::Jpeg) {
-        error!("Image writer buffer error : {}",e.to_string())
+        error!("Image writer buffer error : {e}")
     }
     img.fill(0);
     drop(img);

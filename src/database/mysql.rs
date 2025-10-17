@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use mysql::{Conn, Row};
 use mysql::prelude::Queryable;
 use crate::database::{Database, DBRawToStruct};
@@ -10,7 +10,7 @@ pub struct MySql {
 
 pub fn init (username : &Option<String>,password : &Option<String>,host_name : &Option<String>,db_name : &Option<String>) -> std::io::Result<String> {
     if username.is_none() || password.is_none() || host_name.is_none() || db_name.is_none() {
-        Err(Error::new(ErrorKind::Other,"Error mysql initialize parameters."))
+        Err(Error::other("Error mysql initialize parameters."))
     } else {
         let conn_url = format!("mysql://{}:{}@{}/{}",username.clone().unwrap(),password.clone().unwrap(),host_name.clone().unwrap(),db_name.clone().unwrap());
         let connection = Conn::new(conn_url.as_str());
@@ -37,12 +37,12 @@ pub fn init (username : &Option<String>,password : &Option<String>,host_name : &
                         Ok(conn_url)
                     }
                     Err(e) => {
-                        Err(Error::new(ErrorKind::Other,format!("Error setup mysql {:?}",e)))
+                        Err(Error::other(format!("Error setup mysql {:?}",e)))
                     }
                 }
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other,format!("Error setup mysql {:?}",e)))
+                Err(Error::other(format!("Error setup mysql {:?}",e)))
             }
         }
     }
@@ -83,7 +83,7 @@ impl Database for MySql {
                 Ok(())
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error insert mysql {:?}", e)))
+                Err(Error::other( format!("Error insert mysql {:?}", e)))
             }
         }
     }
@@ -104,7 +104,7 @@ impl Database for MySql {
                 }
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select mysql {:?}",e)))
+                Err(Error::other(format!("Error select mysql {:?}",e)))
             }
         }
     }
@@ -119,7 +119,7 @@ impl Database for MySql {
                 Ok(result)
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select mysql {:?}", e)))
+                Err(Error::other(format!("Error select mysql {:?}", e)))
             }
         }
     }

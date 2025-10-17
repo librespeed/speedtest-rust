@@ -25,7 +25,7 @@ impl HttpServer {
     pub async fn init () -> std::io::Result<Self> {
         let config = SERVER_CONFIG.get().unwrap();
         let tcp_socket = TcpSocket::make_listener(config)?;
-        info!("Server started on {}",tcp_socket.to_string());
+        info!("Server started on {}",tcp_socket);
         info!("Server base url : {}/",config.base_url);
         let mut tls_acceptor = None;
         if config.enable_tls {
@@ -51,17 +51,9 @@ impl HttpServer {
 
                         let remote_addr = find_remote_ip_addr(&mut socket).await;
 
-                        if tls_acceptor.is_none() {
+                        if let Some(tls_acceptor) = tls_acceptor {
 
-                            let (socket_r,socket_w) = socket.split();
-                            let mut buff_reader = BufReader::with_capacity(8 * 1024,socket_r);
-                            let mut buff_writer = BufWriter::with_capacity(8 * 1024,socket_w);
-                            Self::handle_connection(&remote_addr,&mut buff_reader,&mut buff_writer,&mut database).await;
-
-
-                        } else {
-
-                            let stream = tls_acceptor.unwrap().accept(socket).await;
+                            let stream = tls_acceptor.accept(socket).await;
                             match stream {
                                 Ok(stream) => {
 
@@ -72,9 +64,16 @@ impl HttpServer {
 
                                 }
                                 Err(e) => {
-                                    trace!("Error tcp connection : {}",e.to_string())
+                                    trace!("Error tcp connection : {e}")
                                 }
                             }
+
+                        } else {
+
+                            let (socket_r,socket_w) = socket.split();
+                            let mut buff_reader = BufReader::with_capacity(8 * 1024,socket_r);
+                            let mut buff_writer = BufWriter::with_capacity(8 * 1024,socket_w);
+                            Self::handle_connection(&remote_addr,&mut buff_reader,&mut buff_writer,&mut database).await;
 
                         }
 
@@ -82,7 +81,7 @@ impl HttpServer {
 
                 }
                 Err(e) => {
-                    trace!("Error tcp connection : {}",e.to_string())
+                    trace!("Error tcp connection : {e}")
                 }
             }
 

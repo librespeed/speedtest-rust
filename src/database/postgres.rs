@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use postgres::{Client, NoTls, Row};
 use tokio::task::block_in_place;
 use crate::database::{Database, DBRawToStruct};
@@ -10,7 +10,7 @@ pub struct Postgres {
 
 pub fn init (username : &Option<String>,password : &Option<String>,host_name : &Option<String>,db_name : &Option<String>) -> std::io::Result<Client> {
     if username.is_none() || password.is_none() || host_name.is_none() || db_name.is_none() {
-        Err(Error::new(ErrorKind::Other,"Error postgres initialize parameters."))
+        Err(Error::other("Error postgres initialize parameters."))
     } else {
         let conn_url = format!("postgresql://{}:{}@{}/{}",username.clone().unwrap(),password.clone().unwrap(),host_name.clone().unwrap(),db_name.clone().unwrap());
         block_in_place(|| {
@@ -40,12 +40,12 @@ pub fn init (username : &Option<String>,password : &Option<String>,host_name : &
                             Ok(client)
                         }
                         Err(e) => {
-                            Err(Error::new(ErrorKind::Other,format!("Error setup postgres {:?}",e)))
+                            Err(Error::other(format!("Error setup postgres {:?}",e)))
                         }
                     }
                 }
                 Err(e) => {
-                    Err(Error::new(ErrorKind::Other,format!("Error setup postgres {:?}",e)))
+                    Err(Error::other(format!("Error setup postgres {:?}",e)))
                 }
             }
         })
@@ -86,7 +86,7 @@ impl Database for Postgres {
                 Ok(())
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error insert postgres {:?}", e)))
+                Err(Error::other(format!("Error insert postgres {:?}", e)))
             }
         }
     }
@@ -99,7 +99,7 @@ impl Database for Postgres {
                 Ok(Some(row.to_telemetry_struct().unwrap()))
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select postgres {:?}", e)))
+                Err(Error::other(format!("Error select postgres {:?}", e)))
             }
         }
     }
@@ -113,7 +113,7 @@ impl Database for Postgres {
                 Ok(result)
             }
             Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("Error select postgres {:?}", e)))
+                Err(Error::other(format!("Error select postgres {:?}", e)))
             }
         }
     }

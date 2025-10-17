@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
 
     //init configs & statics
     if let Err(e) = config::init_configs(cmd) {
-        error!("{}",e.to_string());
+        error!("{e}");
         std::process::exit(1)
     }
 
@@ -40,20 +40,20 @@ fn main() -> std::io::Result<()> {
                                 http_server.listen(&mut database).await;
                             }
                             Err(e) => {
-                                error!("{}",e.to_string());
+                                error!("{e}");
                                 std::process::exit(1)
                             }
                         }
                     });
                 }
                 Err(e) => {
-                    error!("{}",e.to_string());
+                    error!("{e}");
                     std::process::exit(1)
                 }
             }
         }
         Err(e) => {
-            error!("{}",e.to_string());
+            error!("{e}");
             std::process::exit(1)
         }
     }
