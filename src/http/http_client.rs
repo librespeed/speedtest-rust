@@ -20,7 +20,7 @@ pub struct HttpClient {
 #[derive(Debug)]
 pub enum ClientStream {
     Tcp(TcpStream),
-    Tls(TlsStream<TcpStream>),
+    Tls(Box<TlsStream<TcpStream>>),
 }
 
 impl AsyncRead for ClientStream {
@@ -60,7 +60,7 @@ impl HttpClient {
         let tcp_stream = TcpStream::connect(format!("{}:{}",pared_url.1,pared_url.2)).await?;
         let stream = if pared_url.2 == 443 {
             let tls_stream = setup_tls_connector(pared_url.1.clone(),tcp_stream).await;
-            ClientStream::Tls(tls_stream)
+            ClientStream::Tls(Box::from(tls_stream))
         } else {
             ClientStream::Tcp(tcp_stream)
         };
