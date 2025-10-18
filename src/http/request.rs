@@ -278,11 +278,13 @@ fn clear_path_end_slash(input: &str) -> &str {
 }
 
 fn trust_addr_proxy(headers : &CIHashMap<String>,remote_addr : &str) -> String {
-    if let Some(remote_ip) = headers.get("X-Real-IP") {
-        remote_ip.to_string()
-    } else {
-        remote_addr.to_string()
-    }
+    headers.get("X-Real-IP")
+        .map(|s| s.as_str())
+        .or_else(|| {
+            headers.get("X-Forwarded-For").and_then(|s| {
+                s.split(',').next().map(|ip| ip.trim())
+            })
+        }).unwrap_or(remote_addr).to_string()
 }
 
 //form-data-parser
