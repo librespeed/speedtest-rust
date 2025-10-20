@@ -10,68 +10,55 @@ permissions:
   packages: write
 
 jobs:
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
+  linux-build:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container && fromJSON(format('{{"image":"{0}","options":"--user root"}}', matrix.container)) }}
 
     strategy:
       matrix:
         include:
 
-          # linux
           - build: linux-64-gnu
-            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            sys-type: linux
+            container: debian:buster
             package-deb: yes
 
           - build: linux-aarch64-gnu
-            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
-            sys-type: linux
+            container: debian:buster
             package-deb: yes
 
           - build: linux-i686-gnu
-            os: ubuntu-22.04
             target: i686-unknown-linux-gnu
-            sys-type: linux
+            container: debian:buster
             package-deb: yes
 
           - build: linux-armv7-gnueabihf
-            os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
-            sys-type: linux
-            package-deb: no
+            container: debian:buster
+            package-deb: yes
 
           - build: linux-64-musl
-            os: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            sys-type: linux
-            package-deb: no
-
-          # win
-          - build: windows
-            os: windows-latest
-            target: i686-pc-windows-msvc
-            sys-type: windows
-            package-deb: no
-
-          - build: windows
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            sys-type: windows
-            package-deb: no
-
-          # mac
-          - build: mac-os-64
-            os: macos-latest
-            target: x86_64-apple-darwin
-            sys-type: mac
+            container: clux/muslrust:stable
             package-deb: no
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fix apt sources (for EOL Debian)
+        if: matrix.container == 'debian:buster'
+        run: |
+          sed -i 's|deb.debian.org|archive.debian.org|g' /etc/apt/sources.list
+          sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl ca-certificates build-essential pkg-config libssl-dev git
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -79,56 +66,39 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install linux needed deps
-        if: matrix.sys-type == 'linux'
         shell: bash
         run: |
           if [ "${{ matrix.build }}" = "linux-aarch64-gnu" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            apt-get install -y gcc-aarch64-linux-gnu
           elif [ "${{ matrix.build }}" = "linux-i686-gnu" ]; then
-            sudo apt-get install -y gcc-multilib
+            apt-get install -y gcc-multilib
           elif [ "${{ matrix.build }}" = "linux-armv7-gnueabihf" ]; then
-            sudo apt-get install -y gcc-arm-linux-gnueabihf
+            apt-get install -y gcc-arm-linux-gnueabihf
           elif [ "${{ matrix.build }}" = "linux-64-musl" ]; then
-            sudo apt-get install -y musl-tools
+            apt-get install -y musl-tools
           fi
-
-      - name: Install cargo deb packager
-        if: matrix.package-deb == 'yes'
-        shell: bash
-        run: cargo install cargo-deb
 
       - name: Running cargo build
         shell: bash
         run: |
           if [ "${{ matrix.package-deb }}" = "yes" ]; then
+            cargo install cargo-deb
             cargo deb -v --output=target/debian/librespeed-rs-${{ matrix.target }}.deb --target=${{ matrix.target }}
           else
             cargo build --release --target ${{ matrix.target }}
           fi
 
-#      - name: Build
-#        uses: actions-rs/cargo@v1
-#        with:
-#          use-cross: true
-#          command: build
-#          args: --verbose --release --target ${{ matrix.target }}
-
       - name: Make artifact folder
         shell: bash
         run: |
           binary_name="librespeed-rs"
-
           dirname="$binary_name-${{ matrix.target }}"
           mkdir "$dirname"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
-          else
-            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
-            if [ "${{ matrix.package-deb }}" = "yes" ]; then
-              deb_dirname="deb-$dirname"
-              mkdir "$deb_dirname"
-              mv "target/debian/librespeed-rs-${{ matrix.target }}.deb" "$deb_dirname"
-            fi
+          mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
+          if [ "${{ matrix.package-deb }}" = "yes" ]; then
+            deb_dirname="deb-$dirname"
+            mkdir "$deb_dirname"
+            mv "target/debian/librespeed-rs-${{ matrix.target }}.deb" "$deb_dirname"
           fi
 
       - name: Upload artifacts
@@ -139,18 +109,53 @@ jobs:
           path: librespeed-rs-${{ matrix.target }}
 
       - name: Upload deb artifacts
-        if : matrix.package-deb == 'yes'
+        if: matrix.package-deb == 'yes'
         uses: actions/upload-artifact@v4
         with:
           overwrite: true
           name: deb-librespeed-rs-${{ matrix.target }}
           path: deb-librespeed-rs-${{ matrix.target }}
 
+  other-build:
+    name: Build (Windows + macOS)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Make artifact
+        shell: bash
+        run: |
+          name="librespeed-rs"
+          dir="${name}-${{ matrix.target }}"
+          mkdir "$dir"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv "target/${{ matrix.target }}/release/$name.exe" "$dir/"
+          else
+            mv "target/${{ matrix.target }}/release/$name" "$dir/"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: librespeed-rs-${{ matrix.target }}
+          path: librespeed-rs-${{ matrix.target }}
+
   container-build-push:
     name: Build and push Container image
     runs-on: ubuntu-latest
-    needs: build
-  
+    needs: [linux-build, other-build]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -206,9 +211,8 @@ jobs:
           file: ./Containerfile
           platforms: linux/amd64,linux/arm64,linux/arm/v7
 
-  
   release:
-    needs: [build]
+    needs: [linux-build, other-build]
     name: Publish release
     runs-on: ubuntu-latest
     steps:
