@@ -1,0 +1,18 @@
+# Build
+FROM rust:alpine as builder
+ENV RUSTFLAGS="-C linker=gcc"
+WORKDIR /usr/local/src
+COPY . .
+RUN apk add --no-cache gcc musl-dev
+RUN cargo build --release
+
+# Run
+FROM scratch
+WORKDIR /usr/local/bin
+COPY --from=builder \
+	/usr/local/src/target/release/librespeed-rs \
+	librespeed-rs
+COPY configs.toml configs.toml
+COPY assets assets
+EXPOSE 8080
+CMD ["librespeed-rs"]
