@@ -8,10 +8,13 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio::net::{TcpListener, TcpStream};
 use futures::future::select_all;
+use log::info;
+use tokio::{select, signal};
 
 pub struct TcpSocket {
     tcp_listeners: Vec<TcpListener>,
     addrs: Vec<TcpAddr>,
+    pub(crate) shutdown_tx : tokio::sync::broadcast::Sender<()>,
     from_sys: bool,
 }
 
@@ -24,9 +27,11 @@ impl TcpSocket {
             let tcp_addr = TcpAddr::from_config(config)?;
             (vec![Self::bind(&tcp_addr)?], vec![tcp_addr], false)
         };
+        let (shutdown_tx, _) = tokio::sync::broadcast::channel::<()>(1);
         Ok(TcpSocket {
             tcp_listeners,
             addrs: tcp_addr,
+            shutdown_tx,
             from_sys,
         })
     }
@@ -62,7 +67,7 @@ impl TcpSocket {
         Ok(tcp_listener)
     }
 
-    pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
+    pub async fn accept(&self,shutdown_rx: &mut tokio::sync::broadcast::Receiver<()>) -> io::Result<Option<(TcpStream, SocketAddr)>> {
         if self.tcp_listeners.is_empty() {
             return Err(Error::new(
                 ErrorKind::NotConnected,
@@ -73,9 +78,41 @@ impl TcpSocket {
         let accept_futures = self.tcp_listeners.iter().map(|listener| {
             Box::pin(listener.accept())
         });
-        let (result, _index, _remaining) = select_all(accept_futures).await;
-        result // result of the first future to complete
+
+        select! {
+            res = select_all(accept_futures) => {
+                let (result, _index, _remaining) = res;
+                result.map(Some)
+            }
+            _ = shutdown_rx.recv() => Ok(None),
+        }
     }
+
+    pub fn spawn_signal_handler(&self) {
+        let shutdown_tx = self.shutdown_tx.clone();
+        tokio::spawn(async move {
+            let ctrl_c = signal::ctrl_c();
+
+            #[cfg(unix)]
+            let terminate = async {
+                if let Ok(mut term) = signal::unix::signal(signal::unix::SignalKind::terminate()) {
+                    term.recv().await;
+                }
+            };
+
+            #[cfg(not(unix))]
+            let terminate = std::future::pending::<()>();
+
+            select! {
+                _ = ctrl_c => {},
+                _ = terminate => {},
+            }
+
+            info!("SIGTERM / Ctrl+C received, notifying tasks ...");
+            let _ = shutdown_tx.send(());
+        });
+    }
+
 }
 
 impl fmt::Display for TcpSocket {

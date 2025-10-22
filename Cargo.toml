@@ -14,7 +14,7 @@ postgres = ["dep:postgres"]
 
 [dependencies]
 #async net
-tokio = {version = "1.48.0", features = ["net","io-util","rt","macros","rt-multi-thread","sync"]}
+tokio = {version = "1.48.0", features = ["net","io-util","rt","macros","rt-multi-thread","sync","signal"]}
 tokio-rustls = {version = "0.26.4", features = ["tls12","ring"], default-features = false}
 webpki-roots = "1.0.3"
 rustls-pemfile = "2.2.0"

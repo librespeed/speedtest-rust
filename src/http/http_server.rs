@@ -38,14 +38,16 @@ impl HttpServer {
     }
 
     pub async fn listen (&mut self, database : &mut Arc<Mutex<dyn Database + Send>>) {
+        self.tcp_socket.spawn_signal_handler();
+        let mut shutdown_rx = self.tcp_socket.shutdown_tx.subscribe();
         loop {
 
-            let tcp_accept = self.tcp_socket.accept().await;
+            let tcp_accept = self.tcp_socket.accept(&mut shutdown_rx).await;
             let mut database = database.clone();
             let tls_acceptor = self.tls_acceptor.clone();
 
             match tcp_accept {
-                Ok((mut socket,_)) => {
+                Ok(Some((mut socket,_))) => {
 
                     tokio::spawn(async move {
 
@@ -79,6 +81,11 @@ impl HttpServer {
 
                     });
 
+                }
+                Ok(None) => {
+                    info!("Shutdown signal received, stopping service ...");
+                    info!("Bye 👋");
+                    break;
                 }
                 Err(e) => {
                     trace!("Error tcp connection : {e}")
