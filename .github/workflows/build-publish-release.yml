@@ -41,7 +41,12 @@ jobs:
 
           - build: linux-64-musl
             target: x86_64-unknown-linux-musl
-            container: clux/muslrust:stable
+            container: ghcr.io/rust-cross/rust-musl-cross:x86_64-musl
+            package-deb: no
+
+          - build: linux-i686-musl
+            target: i686-unknown-linux-musl
+            container: ghcr.io/rust-cross/rust-musl-cross:i686-musl
             package-deb: no
 
     steps:
@@ -61,6 +66,7 @@ jobs:
           apt-get install -y curl ca-certificates build-essential pkg-config libssl-dev git
 
       - name: Install Rust
+        if : matrix.build != 'linux-64-musl' && matrix.build != 'linux-i686-musl'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -74,8 +80,6 @@ jobs:
             apt-get install -y gcc-multilib
           elif [ "${{ matrix.build }}" = "linux-armv7-gnueabihf" ]; then
             apt-get install -y gcc-arm-linux-gnueabihf
-          elif [ "${{ matrix.build }}" = "linux-64-musl" ]; then
-            apt-get install -y musl-tools
           fi
 
       - name: Running cargo build
