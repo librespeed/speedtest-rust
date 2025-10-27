@@ -1,3 +1,15 @@
+## Version v1.4.0
+
+### What's changed (fixes) ?
+
+- Add Cargo.lock file to project, Thanks to @MarcelCoding #29
+- Gate databases behind features, Thanks to @werdahias #28
+- Handle shutdown signals, Reported by @bt90 #32
+- Added alpine dockerfile (build small & secure image), Thanks to @cobaltgit #33
+- Using a Debian container to produce GNU executables with a lower glibc version #1
+- Added target i686-unknown-linux-musl
+- Update dependencies, IP-DB
+
 ## Version v1.3.8
 
 ### What's changed (fixes) ?
