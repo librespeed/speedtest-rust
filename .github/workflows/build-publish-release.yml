@@ -130,6 +130,8 @@ jobs:
             target: i686-pc-windows-msvc
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc  
           - os: macos-latest
             target: x86_64-apple-darwin
 
