@@ -89,12 +89,15 @@ impl Response {
                 i if i.ends_with(".css") => {
                     "text/css"
                 }
+                i if i.ends_with(".svg") => {
+                    "image/svg+xml"
+                }
                 _ => {
                     ""
                 }
             };
             let data = match content_type {
-                i if i == "text/javascript" || i == "text/html" || i == "text/css" => {
+                i if i == "text/javascript" || i == "text/html" || i == "text/css" || i == "image/svg+xml" => {
                     let content = String::from_utf8(file_content).unwrap();
                     format!(
                         "HTTP/1.1 200 OK\r\n\
@@ -244,4 +247,55 @@ impl Response {
         Response {data,chunk_count:0}
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{SERVER_CONFIG, ServerConfig};
+
+    fn init_config() {
+        SERVER_CONFIG.get_or_init(|| ServerConfig {
+            bind_address: "0.0.0.0".to_string(),
+            listen_port: 8080,
+            worker_threads: serde_json::Value::from(1),
+            base_url: "test".to_string(),
+            ipinfo_api_key: "".to_string(),
+            stats_password: "".to_string(),
+            redact_ip_addresses: false,
+            result_image_theme: "light".to_string(),
+            assets_path: "".to_string(),
+            database_type: "none".to_string(),
+            database_hostname: None,
+            database_name: None,
+            database_username: None,
+            database_password: None,
+            database_file: None,
+            enable_tls: false,
+            tls_cert_file: "".to_string(),
+            tls_key_file: "".to_string(),
+        });
+    }
+
+    #[test]
+    fn fs_returns_correct_content_type_for_all_mime_types() {
+        init_config();
+        let cases = [
+            ("/index.html",              "200 OK", "Content-Type: text/html"),
+            ("/",                        "200 OK", "Content-Type: text/html"),
+            ("/speedtest.js",            "200 OK", "Content-Type: text/javascript"),
+            ("/servers_list.js",         "200 OK", "Content-Type: text/javascript"),
+            ("/favicon.ico",             "200 OK", "Content-Type: image/vnd.microsoft.icon"),
+            ("/unknown.xyz",             "404 Not Found", ""),
+            ("/nonexistent.html",        "404 Not Found", ""),
+        ];
+        for (path, status, content_type) in &cases {
+            let resp = Response::res_200_fs(path);
+            let body = String::from_utf8_lossy(&resp.data);
+            assert!(body.contains(status), "path={path}: expected status {status}");
+            if !content_type.is_empty() {
+                assert!(body.contains(content_type), "path={path}: expected Content-Type {content_type}");
+            }
+        }
+    }
 }
