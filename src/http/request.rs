@@ -48,6 +48,16 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
         };
         //read headers
         let parsed_headers = header_parser(buf_reader).await;
+        //honor `Expect: 100-continue` (RFC 9110 §10.1.1) by sending the interim 100 response
+        //*before* reading the body. Without it, clients that use Expect (curl and many HTTP
+        //libraries) wait out their continue-timeout (~1s for curl) on every upload request.
+        if let Some(expect) = parsed_headers.get("Expect") {
+            if expect.eq_ignore_ascii_case("100-continue")
+                && buf_writer.write_all(b"HTTP/1.1 100 Continue\r\n\r\n").await.is_ok()
+            {
+                let _ = buf_writer.flush().await;
+            }
+        }
         //read body content
         let body_form_data = {
             let (body_type,body_size) = check_has_body(&parsed_headers);
@@ -57,27 +67,26 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                         BodyType::Fixed => {
                             match body_size {
                                 Some(body_size) => {
-                                    let mut buffer = [0; 1024];
-                                    let mut len: usize = 0;
-                                    loop {
-                                        let bytes_read = buf_reader.read_exact(&mut buffer).await;
-                                        match bytes_read {
-                                            Ok(0) => {
-                                                buffer.fill(0);
-                                                break;
-                                            }
-                                            Ok(_) => {
-                                                len += buffer.len();
-                                                if len >= body_size as usize {
-                                                    buffer.fill(0);
-                                                    break;
-                                                }
-                                            }
-                                            Err(_) => {
-                                                break;
-                                            }
+                                    // Read and discard exactly `body_size` bytes. The previous loop
+                                    // used `read_exact` into a fixed 1024-byte buffer and added
+                                    // `buffer.len()` (always 1024) per iteration, so a Content-Length
+                                    // that is not a multiple of 1024 left a trailing partial chunk that
+                                    // `read_exact` would block on indefinitely (until the peer
+                                    // disconnects), hanging the upload. Reading with `read` and counting
+                                    // the *actual* bytes returned makes any Content-Length safe and
+                                    // removes the need for client-side payload padding. The larger
+                                    // buffer also cuts the per-1KB read-syscall overhead.
+                                    let mut buffer = [0u8; 65536];
+                                    let mut remaining = body_size as usize;
+                                    while remaining > 0 {
+                                        let want = remaining.min(buffer.len());
+                                        match buf_reader.read(&mut buffer[..want]).await {
+                                            Ok(0) => break,          // peer closed before sending it all
+                                            Ok(n) => remaining -= n, // count what we actually read
+                                            Err(_) => break,
                                         }
                                     }
+                                    buffer.fill(0);
                                     None
                                 }
                                 None => {
@@ -345,4 +354,75 @@ fn parse_form_url_encoded(body : &[u8]) -> HashMap<String,String> {
         }
     };
     form_data
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    // Minimal router stub: every request gets a 200, so the tests exercise body consumption
+    // and the Expect handshake in `handle_socket` rather than the real routes.
+    fn ok_router(_req: Request) -> Pin<Box<dyn Future<Output = Response> + Send>> {
+        Box::pin(async { Response::res_200("") })
+    }
+
+    fn count_occurrences(haystack: &[u8], needle: &[u8]) -> usize {
+        if needle.is_empty() || haystack.len() < needle.len() { return 0; }
+        let mut count = 0;
+        let mut i = 0;
+        while i + needle.len() <= haystack.len() {
+            if &haystack[i..i + needle.len()] == needle {
+                count += 1;
+                i += needle.len();
+            } else {
+                i += 1;
+            }
+        }
+        count
+    }
+
+    async fn drive(raw: Vec<u8>) -> Vec<u8> {
+        let mut reader = BufReader::new(Cursor::new(raw));
+        let mut writer = BufWriter::new(Vec::new());
+        handle_socket("127.0.0.1", &mut reader, &mut writer, ok_router).await;
+        writer.flush().await.unwrap();
+        writer.into_inner()
+    }
+
+    /// A Content-Length that is NOT a multiple of the read-buffer size must consume *exactly*
+    /// `Content-Length` body bytes — not over-read into a following pipelined request. The old
+    /// `read_exact([0; 1024])` loop demanded a full final 1024-byte chunk, swallowing bytes of the
+    /// next request (and, against a live peer that keeps the socket open, blocking forever — the
+    /// upload "hang" WiFiMaster/ops worked around with 1024/2048 payload padding).
+    #[tokio::test]
+    async fn fixed_body_is_not_over_read_into_a_pipelined_request() {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(b"POST /empty HTTP/1.1\r\nContent-Length: 1500\r\n\r\n");
+        raw.extend_from_slice(&vec![b'x'; 1500]); // 1500 % 1024 == 476
+        raw.extend_from_slice(b"GET /empty HTTP/1.1\r\n\r\n");
+        let out = drive(raw).await;
+        assert_eq!(
+            count_occurrences(&out, b"HTTP/1.1 200"), 2,
+            "both the POST and the pipelined GET must be answered; the body must stop at Content-Length"
+        );
+    }
+
+    /// `Expect: 100-continue` must get an interim `100 Continue` so the client sends its body
+    /// immediately instead of waiting out its continue-timeout (~1s for curl) on every upload.
+    #[tokio::test]
+    async fn expect_100_continue_receives_interim_response() {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(b"POST /empty HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 2048\r\n\r\n");
+        raw.extend_from_slice(&vec![b'x'; 2048]);
+        let out = drive(raw).await;
+        assert!(
+            count_occurrences(&out, b"100 Continue") >= 1,
+            "server must send an interim `100 Continue` for `Expect: 100-continue`"
+        );
+        assert!(
+            count_occurrences(&out, b"HTTP/1.1 200") >= 1,
+            "the final 200 response must still follow the interim 100"
+        );
+    }
 }
