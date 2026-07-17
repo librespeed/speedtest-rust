@@ -62,20 +62,14 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                                     loop {
                                         let bytes_read = buf_reader.read_exact(&mut buffer).await;
                                         match bytes_read {
-                                            Ok(0) => {
-                                                buffer.fill(0);
-                                                break;
-                                            }
+                                            Ok(0) => break,
                                             Ok(_) => {
                                                 len += buffer.len();
                                                 if len >= body_size as usize {
-                                                    buffer.fill(0);
                                                     break;
                                                 }
                                             }
-                                            Err(_) => {
-                                                break;
-                                            }
+                                            Err(_) => break,
                                         }
                                     }
                                     None
@@ -90,16 +84,9 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                             loop {
                                 let bytes_read = buf_reader.read_exact(&mut buffer).await;
                                 match bytes_read {
-                                    Ok(0) => {
-                                        buffer.fill(0);
-                                        break;
-                                    }
-                                    Ok(_) => {
-                                        buffer.fill(0);
-                                    }
-                                    Err(_) => {
-                                        break;
-                                    }
+                                    Ok(0) => break,
+                                    Ok(_) => {}
+                                    Err(_) => break,
                                 }
                             }
                             None
@@ -113,7 +100,6 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                                             let mut body = Vec::with_capacity(body_size as usize);
                                             buf_reader.take(body_size).read_to_end(&mut body).await.unwrap();
                                             let form_data = parse_form_data(&form_boundary,&body);
-                                            body.fill(0);
                                             Some(form_data)
                                         }
                                         None => {
@@ -132,7 +118,6 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                                     let mut body = Vec::with_capacity(body_size as usize);
                                     buf_reader.take(body_size).read_to_end(&mut body).await.unwrap();
                                     let form_data = parse_form_url_encoded(&body);
-                                    body.fill(0);
                                     Some(form_data)
                                 }
                                 None => {
