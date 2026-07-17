@@ -33,9 +33,11 @@ pub fn validate_cookie(cookie_data : Option<&String>) -> bool {
 }
 
 fn sha256_hash(input : &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    let result = hasher.finalize();
-    let hash_string = format!("{:x}",result);
+    let result = Sha256::digest(input.as_bytes());
+    let hash_string = result.iter().fold(String::new(), |mut acc, b| {
+        use std::fmt::Write;
+        write!(&mut acc, "{:02x}", b).expect("unable to write");
+        acc
+    });
     hash_string
 }
