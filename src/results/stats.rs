@@ -40,7 +40,7 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
                 let id = request.query_params.get("id").unwrap_or(&def).as_str();
                 match id {
                     "L100" => {
-                        let data = db.fetch_last_100();
+                        let data = db.fetch_last_100().await;
                         match data {
                             Ok(mut data) => {
                                 telemetry_list.append(&mut data);
@@ -52,7 +52,7 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
                         }
                     }
                     _ => {
-                        let data = db.fetch_by_uuid(id);
+                        let data = db.fetch_by_uuid(id).await;
                         match data {
                             Ok(data) => {
                                 if let Some(data) = data {

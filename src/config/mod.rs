@@ -88,17 +88,20 @@ pub fn init_runtime () -> std::io::Result<Runtime> {
         Builder::new_multi_thread()
             .thread_name("librespeed-rs")
             .enable_io()
+            .enable_time()
             .build()
     } else {
         let worker_threads = worker_threads.as_u64().unwrap_or(1) as usize;
         match worker_threads {
             0 | 1 => Builder::new_current_thread()
                 .enable_io()
+                .enable_time()
                 .build(),
             _ => Builder::new_multi_thread()
                 .thread_name("librespeed-rs")
                 .worker_threads(worker_threads)
                 .enable_io()
+                .enable_time()
                 .build(),
         }
     }

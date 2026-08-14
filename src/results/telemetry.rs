@@ -54,7 +54,7 @@ pub async fn record_result (request : &Request, database : &mut Arc<Mutex<dyn Da
         log: log.to_string(),
         uuid: uuid.to_string(),
         timestamp: get_current_millis(),
-    });
+    }).await;
     match insert_db {
         Ok(_) => {
             Ok(uuid)

@@ -12,7 +12,7 @@ mod config;
 mod cmd;
 
 fn main() -> std::io::Result<()> {
-    //parse args
+    // parse args
     let cmd = Cmd::parse_args();
 
     if cmd.download_ipdb {
@@ -20,20 +20,20 @@ fn main() -> std::io::Result<()> {
         return Ok(())
     }
 
-    //init configs & statics
+    // init configs & statics
     if let Err(e) = config::init_configs(cmd) {
         error!("{e}");
         std::process::exit(1)
     }
 
-    //init database
-    let database = database::init();
-    match database {
-        Ok(mut database) => {
-            let runtime = config::init_runtime();
-            match runtime {
-                Ok(runtime) => {
-                    runtime.block_on(async  {
+    // init app
+    let runtime = config::init_runtime();
+    match runtime {
+        Ok(runtime) => {
+            runtime.block_on(async {
+                let database = database::init().await;
+                match database {
+                    Ok(mut database) => {
                         let http_server = HttpServer::init().await;
                         match http_server {
                             Ok(mut http_server) => {
@@ -44,13 +44,13 @@ fn main() -> std::io::Result<()> {
                                 std::process::exit(1)
                             }
                         }
-                    });
+                    }
+                    Err(e) => {
+                        error!("{e}");
+                        std::process::exit(1)
+                    }
                 }
-                Err(e) => {
-                    error!("{e}");
-                    std::process::exit(1)
-                }
-            }
+            });
         }
         Err(e) => {
             error!("{e}");

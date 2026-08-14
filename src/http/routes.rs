@@ -35,7 +35,7 @@ pub async fn show_result_route (database : &mut Arc<Mutex<dyn Database + Send>>,
     match result_id {
         Some(result_id) => {
             let mut db = database.lock().await;
-            let fetched_result = db.fetch_by_uuid(result_id);
+            let fetched_result = db.fetch_by_uuid(result_id).await;
             match fetched_result {
                 Ok(fetched_result) => {
                     match fetched_result {

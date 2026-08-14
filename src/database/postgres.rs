@@ -1,120 +1,153 @@
-use std::io::Error;
-use postgres::{Client, NoTls, Row};
-use tokio::task::block_in_place;
+use std::sync::Arc;
+use async_trait::async_trait;
+use log::info;
+use sqlx::{postgres::{PgPool, PgPoolOptions, PgRow}, Row};
+use tokio::sync::Mutex;
 use crate::database::{Database, DBRawToStruct};
 use crate::results::TelemetryData;
 
 pub struct Postgres {
-    pub connection : Client
+    pool: PgPool,
 }
 
-pub fn init (username : &Option<String>,password : &Option<String>,host_name : &Option<String>,db_name : &Option<String>) -> std::io::Result<Client> {
-    if username.is_none() || password.is_none() || host_name.is_none() || db_name.is_none() {
-        Err(Error::other("Error postgres initialize parameters."))
-    } else {
-        let conn_url = format!("postgresql://{}:{}@{}/{}",username.clone().unwrap(),password.clone().unwrap(),host_name.clone().unwrap(),db_name.clone().unwrap());
-        block_in_place(|| {
-            let client = Client::connect(&conn_url, NoTls);
-            match client {
-                Ok(mut client) => {
-                    let create_table = block_in_place(|| {
-                        client.execute(
-                            "CREATE TABLE IF NOT EXISTS speedtest_users (\
-                            id serial primary key,\
-                            ip_address text NOT NULL,\
-                            isp_info text,\
-                            extra text,\
-                            user_agent text NOT NULL,\
-                            lang text NOT NULL,\
-                            download text,\
-                            upload text,\
-                            ping text,\
-                            jitter text,\
-                            log text,\
-                            uuid text,\
-                            \"timestamp\" bigint\
-                            )",&[])
-                    });
-                    match create_table {
-                        Ok(_) => {
-                            Ok(client)
-                        }
-                        Err(e) => {
-                            Err(Error::other(format!("Error setup postgres {:?}",e)))
-                        }
-                    }
-                }
-                Err(e) => {
-                    Err(Error::other(format!("Error setup postgres {:?}",e)))
+impl Postgres {
+    
+    pub async fn init(
+        username: &Option<String>,
+        password: &Option<String>,
+        host_name: &Option<String>,
+        db_name: &Option<String>,
+    ) -> std::io::Result<Arc<Mutex<Postgres>>> {
+        if username.is_none() || password.is_none() || host_name.is_none() || db_name.is_none() {
+            return Err(std::io::Error::other("Error postgres initialize parameters."));
+        }
+
+        let conn_url = format!(
+            "postgresql://{}:{}@{}/{}",
+            username.clone().unwrap(),
+            password.clone().unwrap(),
+            host_name.clone().unwrap(),
+            db_name.clone().unwrap()
+        );
+
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&conn_url)
+            .await;
+
+        match pool {
+            Ok(pool) => {
+                let create_table = sqlx::query(
+                    "CREATE TABLE IF NOT EXISTS speedtest_users (
+                    id serial primary key,
+                    ip_address text NOT NULL,
+                    isp_info text,
+                    extra text,
+                    user_agent text NOT NULL,
+                    lang text NOT NULL,
+                    download text,
+                    upload text,
+                    ping text,
+                    jitter text,
+                    log text,
+                    uuid text,
+                    \"timestamp\" bigint
+                )").execute(&pool).await;
+
+                match create_table {
+                    Ok(_) => {
+                        info!("Database Postgres initialized successfully");
+                        Ok(Arc::new(Mutex::new(Postgres{ pool })))
+                    },
+                    Err(e) => Err(std::io::Error::other(format!("Error setup postgres {:?}", e))),
                 }
             }
-        })
+            Err(e) => Err(std::io::Error::other(format!("Error setup postgres {:?}", e))),
+        }
+        
     }
+    
 }
 
-impl DBRawToStruct<Error> for Row {
-    fn to_telemetry_struct(&self) -> Result<TelemetryData, Error> {
+impl DBRawToStruct<sqlx::Error> for PgRow {
+    fn to_telemetry_struct(&self) -> Result<TelemetryData, sqlx::Error> {
         Ok(TelemetryData {
-            ip_address: self.get(1),
-            isp_info: self.get(2),
-            extra: self.get(3),
-            user_agent: self.get(4),
-            lang: self.get(5),
-            download: self.get(6),
-            upload: self.get(7),
-            ping: self.get(8),
-            jitter: self.get(9),
-            log: self.get(10),
-            uuid: self.get(11),
-            timestamp: self.get(12),
+            ip_address: self.try_get(1)?,
+            isp_info: self.try_get(2)?,
+            extra: self.try_get(3)?,
+            user_agent: self.try_get(4)?,
+            lang: self.try_get(5)?,
+            download: self.try_get(6)?,
+            upload: self.try_get(7)?,
+            ping: self.try_get(8)?,
+            jitter: self.try_get(9)?,
+            log: self.try_get(10)?,
+            uuid: self.try_get(11)?,
+            timestamp: self.try_get(12)?,
         })
     }
 }
 
+#[async_trait]
 impl Database for Postgres {
-    fn insert(&mut self,data : TelemetryData) -> std::io::Result<()> {
-        let insert = block_in_place(|| {
-            self.connection.execute("INSERT INTO speedtest_users \
-                                                (ip_address,isp_info,extra,user_agent,lang,download,upload,ping,jitter,log,uuid,timestamp) \
-                                                VALUES \
-                                                ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-                                    &[&data.ip_address, &data.isp_info, &data.extra, &data.user_agent, &data.lang, &data.download, &data.upload, &data.ping, &data.jitter, &data.log, &data.uuid, &data.timestamp])
-        });
-        drop(data);
+    async fn insert(&mut self, data: TelemetryData) -> std::io::Result<()> {
+        let insert = sqlx::query(
+            "INSERT INTO speedtest_users \
+             (ip_address,isp_info,extra,user_agent,lang,download,upload,ping,jitter,log,uuid,timestamp) \
+             VALUES \
+             ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"
+        )
+            .bind(&data.ip_address)
+            .bind(&data.isp_info)
+            .bind(&data.extra)
+            .bind(&data.user_agent)
+            .bind(&data.lang)
+            .bind(&data.download)
+            .bind(&data.upload)
+            .bind(&data.ping)
+            .bind(&data.jitter)
+            .bind(&data.log)
+            .bind(&data.uuid)
+            .bind(data.timestamp)
+            .execute(&self.pool)
+            .await;
+
         match insert {
-            Ok(_) => {
-                Ok(())
-            }
-            Err(e) => {
-                Err(Error::other(format!("Error insert postgres {:?}", e)))
-            }
+            Ok(_) => Ok(()),
+            Err(e) => Err(std::io::Error::other(format!("Error insert postgres {:?}", e))),
         }
     }
-    fn fetch_by_uuid(&mut self,uuid : &str) -> std::io::Result<Option<TelemetryData>> {
-        let row = block_in_place(|| {
-            self.connection.query_one("SELECT * FROM speedtest_users WHERE uuid=$1",&[&uuid.to_string()])
-        });
+
+    async fn fetch_by_uuid(&mut self, uuid: &str) -> std::io::Result<Option<TelemetryData>> {
+        let row = sqlx::query("SELECT * FROM speedtest_users WHERE uuid = $1")
+            .bind(uuid)
+            .fetch_optional(&self.pool)
+            .await;
+
         match row {
-            Ok(row) => {
-                Ok(Some(row.to_telemetry_struct().unwrap()))
-            }
-            Err(e) => {
-                Err(Error::other(format!("Error select postgres {:?}", e)))
-            }
+            Ok(Some(row)) => match row.to_telemetry_struct() {
+                Ok(item) => Ok(Some(item)),
+                Err(_) => Ok(None),
+            },
+            Ok(None) => Ok(None),
+            Err(e) => Err(std::io::Error::other(format!("Error select postgres {:?}", e))),
         }
     }
-    fn fetch_last_100(&mut self) -> std::io::Result<Vec<TelemetryData>> {
-        let rows = block_in_place(|| {
-            self.connection.query("SELECT * FROM speedtest_users ORDER BY timestamp DESC LIMIT 100",&[])
-        });
+
+    async fn fetch_last_100(&mut self) -> std::io::Result<Vec<TelemetryData>> {
+        let rows = sqlx::query("SELECT * FROM speedtest_users ORDER BY timestamp DESC LIMIT 100")
+            .fetch_all(&self.pool)
+            .await;
+
         match rows {
             Ok(rows) => {
-                let result: Vec<TelemetryData> = rows.iter().map(|row| { row.to_telemetry_struct().unwrap() }).collect();
+                let result: Vec<TelemetryData> = rows
+                    .iter()
+                    .filter_map(|row| row.to_telemetry_struct().ok())
+                    .collect();
                 Ok(result)
             }
-            Err(e) => {
-                Err(Error::other(format!("Error select postgres {:?}", e)))
-            }
+            Err(e) => Err(std::io::Error::other(format!("Error select postgres {:?}", e))),
         }
     }
 }
