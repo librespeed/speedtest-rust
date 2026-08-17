@@ -95,20 +95,47 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                             }
                         }
                         BodyType::Chunked => {
-                            let mut buffer = [0; 1024];
+                            // Decode Transfer-Encoding: chunked (RFC 9112 §7.1).
+                            // The previous implementation read the raw stream
+                            // in fixed 1024-byte blocks and never decoded it:
+                            // with a finite payload the client keeps the
+                            // connection open (keep-alive, no half-close), the
+                            // final block never fills, and the server hangs
+                            // instead of answering (librespeed/speedtest-rust#49).
+                            let mut buffer = [0u8; 65536];
                             loop {
-                                let bytes_read = buf_reader.read_exact(&mut buffer).await;
-                                match bytes_read {
-                                    Ok(0) => {
-                                        buffer.fill(0);
+                                // chunk-size line, e.g. "1f4"; extensions after
+                                // ';' are ignored per RFC 9112 §7.1.1.
+                                let size_line = match buf_reader.lines().next_line().await {
+                                    Ok(Some(line)) => line,
+                                    _ => break,
+                                };
+                                let size_str = size_line.split(';').next().unwrap_or("").trim();
+                                let chunk_size = usize::from_str_radix(size_str, 16).unwrap_or(0);
+                                if chunk_size == 0 {
+                                    // last-chunk: consume the trailer section
+                                    // up to the terminating blank line
+                                    loop {
+                                        match buf_reader.lines().next_line().await {
+                                            Ok(Some(line)) if !line.is_empty() => continue,
+                                            _ => break,
+                                        }
+                                    }
+                                    break;
+                                }
+                                // read exactly `chunk_size` bytes of data
+                                let mut remaining = chunk_size;
+                                while remaining > 0 {
+                                    let want = remaining.min(buffer.len());
+                                    if buf_reader.read_exact(&mut buffer[..want]).await.is_err() {
                                         break;
                                     }
-                                    Ok(_) => {
-                                        buffer.fill(0);
-                                    }
-                                    Err(_) => {
-                                        break;
-                                    }
+                                    remaining -= want;
+                                }
+                                // trailing CRLF after each chunk's data
+                                let mut crlf = [0u8; 2];
+                                if buf_reader.read_exact(&mut crlf).await.is_err() {
+                                    break;
                                 }
                             }
                             None
