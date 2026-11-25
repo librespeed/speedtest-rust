@@ -42,6 +42,8 @@ pub struct ServerConfig {
     pub worker_threads: Value,
     pub base_url: String,
     pub ipinfo_api_key: String,
+    #[serde(default, alias = "disable_ipinfo_lookup")]
+    pub disable_ipinfo: bool,
     #[serde(
         default,
         alias = "country_asn_db_file",
@@ -79,6 +81,7 @@ impl Default for ServerConfig {
             worker_threads: Value::from(1),
             base_url: "backend".to_string(),
             ipinfo_api_key: "".to_string(),
+            disable_ipinfo: false,
             country_asn_mmdb_path: "country_asn.mmdb".to_string(),
             city_mmdb_path: "".to_string(),
             stats_password: "".to_string(),
@@ -216,6 +219,7 @@ fn initialize(mut config: ServerConfig, cmd: Cmd) -> std::io::Result<()> {
     config.listen_port.set_if_some(cmd.listen_port);
     config.base_url.set_if_some(cmd.base_url);
     config.ipinfo_api_key.set_if_some(cmd.ipinfo_api_key);
+    config.disable_ipinfo.set_if_some(cmd.disable_ipinfo);
     config
         .country_asn_mmdb_path
         .set_if_some(cmd.country_asn_mmdb_path);

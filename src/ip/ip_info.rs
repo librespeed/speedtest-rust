@@ -56,7 +56,7 @@ pub struct LocationInfo {
     pub region: String,
     #[serde(default)]
     pub country: String,
-    #[serde(default)]
+    #[serde(default, rename = "countryName", alias = "country_name")]
     pub country_name: String,
     #[serde(default)]
     pub loc: String,
@@ -167,8 +167,14 @@ impl IPInfo {
         ip_info.rawIspInfo.hostname = first_string(res_body, &[&["hostname"]]).unwrap_or_default();
         ip_info.rawIspInfo.city = first_string(res_body, &[&["city"]]).unwrap_or_default();
         ip_info.rawIspInfo.region = first_string(res_body, &[&["region"]]).unwrap_or_default();
-        ip_info.rawIspInfo.country = first_string(res_body, &[&["country"]]).unwrap_or_default();
-        ip_info.rawIspInfo.location = first_string(res_body, &[&["loc"]]).unwrap_or_default();
+        ip_info.rawIspInfo.country =
+            normalize_country_code(&first_string(res_body, &[&["country"]]).unwrap_or_default());
+        let api_location = first_string(res_body, &[&["loc"]]).unwrap_or_default();
+        ip_info.rawIspInfo.location = if parse_coordinates(&api_location).is_some() {
+            api_location
+        } else {
+            String::new()
+        };
         ip_info.rawIspInfo.postal = first_string(res_body, &[&["postal"]]).unwrap_or_default();
         ip_info.rawIspInfo.timezone = first_string(res_body, &[&["timezone"]]).unwrap_or_default();
         ip_info.rawIspInfo.readme = first_string(res_body, &[&["readme"]]);
@@ -222,7 +228,7 @@ impl IPInfo {
         ip_info.location.region = ip_info.rawIspInfo.region.clone();
         ip_info.location.country = ip_info.rawIspInfo.country.clone();
         ip_info.location.country_name =
-            first_string(res_body, &[&["country_name"]]).unwrap_or_default();
+            first_string(res_body, &[&["countryName"], &["country_name"]]).unwrap_or_default();
         ip_info.location.loc = ip_info.rawIspInfo.location.clone();
         ip_info.location.location = ip_info.rawIspInfo.location.clone();
         ip_info.location.org = org.clone();
@@ -271,6 +277,13 @@ Connection: close\r\n\r\n",
     }
 
     async fn get_ipinfo_information(raw_ip: &str) -> Option<IPInfo> {
+        if SERVER_CONFIG
+            .get()
+            .map(|config| config.disable_ipinfo)
+            .unwrap_or(false)
+        {
+            return None;
+        }
         let ip_info_token = SERVER_CONFIG
             .get()
             .map(|config| config.ipinfo_api_key.clone())
@@ -333,45 +346,49 @@ Connection: close\r\n\r\n",
 
     fn merge_offline_location(raw_ip: &str, ip_info: &mut IPInfo) {
         if let Some(city_info) = Self::get_city_info_from_db(raw_ip) {
-            if ip_info.rawIspInfo.city.is_empty() {
-                ip_info.rawIspInfo.city = city_info.city.clone();
-                ip_info.location.city = city_info.city.clone();
-            }
-            if ip_info.rawIspInfo.region.is_empty() {
-                ip_info.rawIspInfo.region = city_info.region.clone();
-                ip_info.location.region = city_info.region.clone();
-            }
-            if ip_info.rawIspInfo.country.is_empty() {
-                ip_info.rawIspInfo.country = city_info.country.clone();
-                ip_info.location.country = city_info.country.clone();
-            }
-            if ip_info.rawIspInfo.postal.is_empty() {
-                ip_info.rawIspInfo.postal = city_info.postal.clone();
-                ip_info.location.postal = city_info.postal.clone();
-            }
-            if ip_info.rawIspInfo.timezone.is_empty() {
-                ip_info.rawIspInfo.timezone = city_info.timezone.clone();
-                ip_info.location.timezone = city_info.timezone.clone();
-            }
-            if ip_info.location.country_name.is_empty()
-                && country_codes_match(&ip_info.location.country, &city_info.country)
-            {
-                ip_info.location.country_name = city_info.country_name.clone();
-            }
-            if ip_info.location.latitude.is_none() {
-                ip_info.location.latitude = city_info.latitude;
-            }
-            if ip_info.location.longitude.is_none() {
-                ip_info.location.longitude = city_info.longitude;
-            }
-            if ip_info.location.loc.is_empty() {
-                if let (Some(latitude), Some(longitude)) =
-                    (ip_info.location.latitude, ip_info.location.longitude)
+            let city_country_compatible =
+                country_codes_match(&ip_info.location.country, &city_info.country);
+            if city_country_compatible {
+                if ip_info.rawIspInfo.city.is_empty() {
+                    ip_info.rawIspInfo.city = city_info.city.clone();
+                    ip_info.location.city = city_info.city.clone();
+                }
+                if ip_info.rawIspInfo.region.is_empty() {
+                    ip_info.rawIspInfo.region = city_info.region.clone();
+                    ip_info.location.region = city_info.region.clone();
+                }
+                if ip_info.rawIspInfo.country.is_empty() {
+                    ip_info.rawIspInfo.country = city_info.country.clone();
+                    ip_info.location.country = city_info.country.clone();
+                }
+                if ip_info.rawIspInfo.postal.is_empty() {
+                    ip_info.rawIspInfo.postal = city_info.postal.clone();
+                    ip_info.location.postal = city_info.postal.clone();
+                }
+                if ip_info.rawIspInfo.timezone.is_empty() {
+                    ip_info.rawIspInfo.timezone = city_info.timezone.clone();
+                    ip_info.location.timezone = city_info.timezone.clone();
+                }
+                if ip_info.location.country_name.is_empty()
+                    && country_codes_match(&ip_info.location.country, &city_info.country)
                 {
-                    ip_info.location.loc = format!("{latitude:.6},{longitude:.6}");
-                    ip_info.location.location = ip_info.location.loc.clone();
-                    if ip_info.rawIspInfo.location.is_empty() {
-                        ip_info.rawIspInfo.location = ip_info.location.loc.clone();
+                    ip_info.location.country_name = city_info.country_name.clone();
+                }
+                if ip_info.location.latitude.is_none() {
+                    ip_info.location.latitude = city_info.latitude;
+                }
+                if ip_info.location.longitude.is_none() {
+                    ip_info.location.longitude = city_info.longitude;
+                }
+                if ip_info.location.loc.is_empty() {
+                    if let (Some(latitude), Some(longitude)) =
+                        (ip_info.location.latitude, ip_info.location.longitude)
+                    {
+                        ip_info.location.loc = format!("{latitude:.6},{longitude:.6}");
+                        ip_info.location.location = ip_info.location.loc.clone();
+                        if ip_info.rawIspInfo.location.is_empty() {
+                            ip_info.rawIspInfo.location = ip_info.location.loc.clone();
+                        }
                     }
                 }
             }
@@ -797,6 +814,15 @@ fn asn_codes_match(api_asn: &str, offline_asn: &str) -> bool {
     api.is_empty() || (!offline.is_empty() && api == offline)
 }
 
+fn normalize_country_code(country: &str) -> String {
+    let country = country.trim();
+    if country.is_empty() {
+        String::new()
+    } else {
+        country.to_ascii_uppercase()
+    }
+}
+
 fn country_codes_match(api_country: &str, offline_country: &str) -> bool {
     let api = api_country.trim();
     let offline = offline_country.trim();
@@ -868,6 +894,10 @@ mod tests {
         assert_eq!(result.location.source, "ipinfo");
         let serialized = serde_json::to_value(&result).unwrap();
         assert!(serialized["location"].is_object());
+        assert_eq!(
+            serialized["location"]["countryName"].as_str(),
+            Some("United States")
+        );
     }
 
     #[test]
@@ -915,6 +945,38 @@ mod tests {
 
         assert_eq!(result.location.asn, "AS8075");
         assert_eq!(result.location.as_name, "Microsoft Corporation");
+    }
+
+    #[test]
+    fn invalid_api_coordinates_are_not_copied() {
+        let body = json!({
+            "ip": "128.94.2.134",
+            "country": "US",
+            "loc": "999,999",
+            "org": "AS8075 Microsoft Corporation"
+        });
+        let result = IPInfo::parse_ipinfo_response("128.94.2.134", &body);
+
+        assert!(result.rawIspInfo.location.is_empty());
+        assert!(result.location.loc.is_empty());
+        assert!(result.location.location.is_empty());
+        assert!(result.location.latitude.is_none());
+        assert!(result.location.longitude.is_none());
+    }
+
+    #[test]
+    fn location_deserializes_legacy_and_camel_case_country_names() {
+        let camel: LocationInfo = serde_json::from_value(json!({
+            "countryName": "United States"
+        }))
+        .unwrap();
+        assert_eq!(camel.country_name, "United States");
+
+        let legacy: LocationInfo = serde_json::from_value(json!({
+            "country_name": "United States"
+        }))
+        .unwrap();
+        assert_eq!(legacy.country_name, "United States");
     }
 
     #[test]

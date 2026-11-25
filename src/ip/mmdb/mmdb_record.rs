@@ -59,7 +59,7 @@ impl MMDBResult {
                 value,
                 &[&["continent_name"], &["continent", "names", "en"]],
             ),
-            country: first_string(
+            country: normalize_country_code(&first_string(
                 value,
                 &[
                     &["country"],
@@ -68,7 +68,7 @@ impl MMDBResult {
                     &["registered_country", "iso_code"],
                     &["registered_country", "code"],
                 ],
-            ),
+            )),
             country_name: first_string(
                 value,
                 &[
@@ -126,7 +126,7 @@ impl MMDBCityResult {
                     &["subdivisions", "0", "iso_code"],
                 ],
             ),
-            country: first_string(
+            country: normalize_country_code(&first_string(
                 value,
                 &[
                     &["country"],
@@ -134,7 +134,7 @@ impl MMDBCityResult {
                     &["country_code"],
                     &["registered_country", "iso_code"],
                 ],
-            ),
+            )),
             country_name: first_string(
                 value,
                 &[
@@ -214,6 +214,15 @@ fn value_as_f64(value: &Value) -> Option<f64> {
     value
         .as_f64()
         .or_else(|| value.as_str().and_then(|text| text.parse::<f64>().ok()))
+}
+
+fn normalize_country_code(country: &str) -> String {
+    let country = country.trim();
+    if country.is_empty() {
+        String::new()
+    } else {
+        country.to_ascii_uppercase()
+    }
 }
 
 fn value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {

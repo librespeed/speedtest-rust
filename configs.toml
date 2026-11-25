@@ -15,6 +15,9 @@ base_url="backend"
 # if the API fails, the server falls back to the offline MMDB databases.
 ipinfo_api_key=""
 
+# Privacy opt-out: disable ipinfo.io provider lookups and use offline MMDB fallback only
+disable_ipinfo=false
+
 # Optional/offline IP database paths.
 country_asn_mmdb_path="country_asn.mmdb"
 city_mmdb_path="" # Optional MaxMind GeoLite2-City/MMDB-compatible database

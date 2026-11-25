@@ -282,6 +282,7 @@ mod tests {
             worker_threads: serde_json::Value::from(1),
             base_url: "test".to_string(),
             ipinfo_api_key: "".to_string(),
+            disable_ipinfo: false,
             country_asn_mmdb_path: "country_asn.mmdb".to_string(),
             city_mmdb_path: "".to_string(),
             stats_password: "".to_string(),

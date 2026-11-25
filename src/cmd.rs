@@ -8,6 +8,7 @@ pub struct Cmd {
     pub listen_port: Option<u16>,
     pub base_url: Option<String>,
     pub ipinfo_api_key: Option<String>,
+    pub disable_ipinfo: Option<bool>,
     pub country_asn_mmdb_path: Option<String>,
     pub city_mmdb_path: Option<String>,
     pub assets_path: Option<String>,
@@ -68,6 +69,12 @@ impl Cmd {
                     .long("ipinfo-api-key")
                     .help("Specify the ipinfo API key")
                     .value_parser(value_parser!(String)),
+            )
+            .arg(
+                Arg::new("disable-ipinfo")
+                    .long("disable-ipinfo")
+                    .help("Disable ipinfo.io API lookups and use offline MMDB fallback only")
+                    .value_parser(value_parser!(bool)),
             )
             .arg(
                 Arg::new("country-asn-mmdb")
@@ -171,6 +178,8 @@ impl Cmd {
         let ipinfo_api_key: Option<String> = args
             .get_one::<String>("ipinfo-api-key")
             .map(|s| s.to_owned());
+        let disable_ipinfo: Option<bool> =
+            args.get_one::<bool>("disable-ipinfo").map(|s| s.to_owned());
         let country_asn_mmdb_path: Option<String> = args
             .get_one::<String>("country-asn-mmdb")
             .map(|s| s.to_owned());
@@ -217,6 +226,7 @@ impl Cmd {
             listen_port,
             base_url,
             ipinfo_api_key,
+            disable_ipinfo,
             country_asn_mmdb_path,
             city_mmdb_path,
             assets_path,

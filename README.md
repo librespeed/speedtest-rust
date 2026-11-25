@@ -33,7 +33,11 @@ Compatible with all librespeed clients :
 
 ### IP and ISP lookup
 
-The `getIP` endpoint queries the unauthenticated [ipinfo.io](https://ipinfo.io/) JSON endpoint when `ipinfo_api_key` is empty. When an API key is configured, the key is sent in the existing authenticated request. API and offline results include the LibreSpeed `rawIspInfo` fields plus a backward-compatible top-level `location` object.
+The `getIP` endpoint uses API-first IP metadata lookup: it queries the unauthenticated [ipinfo.io](https://ipinfo.io/) JSON endpoint when `ipinfo_api_key` is empty, or sends the configured API key when one is present. The operator's API choice is still the existing authenticated-request path. If the API lookup fails or stalls, the server falls back to the offline MMDB data.
+
+By default, keyless API lookup sends the connection IP address to ipinfo.io. Set `disable_ipinfo=true` (or pass `--disable-ipinfo true`) to disable provider lookups entirely and use only local MMDB databases. This feature uses approximate IP-derived location metadata; it does not request browser GPS or collect exact device coordinates.
+
+API and offline results include the LibreSpeed `rawIspInfo` fields plus a backward-compatible top-level `location` object. The location object includes `countryName` in camelCase.
 
 Configure `country_asn_mmdb_path` for an offline country/ASN MMDB (default: `country_asn.mmdb`). Set `city_mmdb_path` to an optional MMDB-compatible city database to add approximate city, region, country, postal code, timezone, and coordinates.
 
