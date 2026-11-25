@@ -136,8 +136,12 @@ impl IPInfo {
         }
 
         if let Some(mut api_info) = Self::get_ipinfo_information(raw_ip).await {
-            Self::merge_offline_location(raw_ip, &mut api_info);
-            api_info.location.source = "ipinfo".to_string();
+            let offline_contributed = Self::merge_offline_location(raw_ip, &mut api_info);
+            api_info.location.source = if offline_contributed {
+                "ipinfo+mmdb".to_string()
+            } else {
+                "ipinfo".to_string()
+            };
             api_info.processedString = Self::build_processed_string(
                 raw_ip,
                 &api_info.rawIspInfo.organization,
@@ -344,7 +348,8 @@ Connection: close\r\n\r\n",
             || !self.location.as_domain.is_empty()
     }
 
-    fn merge_offline_location(raw_ip: &str, ip_info: &mut IPInfo) {
+    fn merge_offline_location(raw_ip: &str, ip_info: &mut IPInfo) -> bool {
+        let mut contributed = false;
         if let Some(city_info) = Self::get_city_info_from_db(raw_ip) {
             let city_country_compatible =
                 country_codes_match(&ip_info.location.country, &city_info.country);
@@ -352,33 +357,45 @@ Connection: close\r\n\r\n",
                 if ip_info.rawIspInfo.city.is_empty() {
                     ip_info.rawIspInfo.city = city_info.city.clone();
                     ip_info.location.city = city_info.city.clone();
+                    contributed = true;
                 }
                 if ip_info.rawIspInfo.region.is_empty() {
                     ip_info.rawIspInfo.region = city_info.region.clone();
                     ip_info.location.region = city_info.region.clone();
+                    contributed = true;
                 }
                 if ip_info.rawIspInfo.country.is_empty() {
                     ip_info.rawIspInfo.country = city_info.country.clone();
                     ip_info.location.country = city_info.country.clone();
+                    contributed = true;
                 }
                 if ip_info.rawIspInfo.postal.is_empty() {
                     ip_info.rawIspInfo.postal = city_info.postal.clone();
                     ip_info.location.postal = city_info.postal.clone();
+                    contributed = true;
                 }
                 if ip_info.rawIspInfo.timezone.is_empty() {
                     ip_info.rawIspInfo.timezone = city_info.timezone.clone();
                     ip_info.location.timezone = city_info.timezone.clone();
+                    contributed = true;
                 }
                 if ip_info.location.country_name.is_empty()
                     && country_codes_match(&ip_info.location.country, &city_info.country)
                 {
                     ip_info.location.country_name = city_info.country_name.clone();
+                    contributed = true;
                 }
                 if ip_info.location.latitude.is_none() {
                     ip_info.location.latitude = city_info.latitude;
+                    if city_info.latitude.is_some() {
+                        contributed = true;
+                    }
                 }
                 if ip_info.location.longitude.is_none() {
                     ip_info.location.longitude = city_info.longitude;
+                    if city_info.longitude.is_some() {
+                        contributed = true;
+                    }
                 }
                 if ip_info.location.loc.is_empty() {
                     if let (Some(latitude), Some(longitude)) =
@@ -389,6 +406,7 @@ Connection: close\r\n\r\n",
                         if ip_info.rawIspInfo.location.is_empty() {
                             ip_info.rawIspInfo.location = ip_info.location.loc.clone();
                         }
+                        contributed = true;
                     }
                 }
             }
@@ -398,28 +416,35 @@ Connection: close\r\n\r\n",
             if ip_info.rawIspInfo.country.is_empty() {
                 ip_info.rawIspInfo.country = country_info.country.clone();
                 ip_info.location.country = country_info.country.clone();
+                contributed = true;
             }
             if ip_info.location.country_name.is_empty()
                 && country_codes_match(&ip_info.location.country, &country_info.country)
             {
                 ip_info.location.country_name = country_info.country_name.clone();
+                contributed = true;
             }
             if asn_codes_match(&ip_info.location.asn, &country_info.asn) {
                 if ip_info.location.asn.is_empty() {
                     ip_info.location.asn = country_info.asn.clone();
+                    contributed = true;
                 }
                 if ip_info.location.as_name.is_empty() {
                     ip_info.location.as_name = country_info.as_name.clone();
+                    contributed = true;
                 }
                 if ip_info.location.as_domain.is_empty() {
                     ip_info.location.as_domain = country_info.as_domain.clone();
+                    contributed = true;
                 }
             }
             if ip_info.location.continent.is_empty() {
                 ip_info.location.continent = country_info.continent.clone();
+                contributed = true;
             }
             if ip_info.location.continent_name.is_empty() {
                 ip_info.location.continent_name = country_info.continent_name.clone();
+                contributed = true;
             }
             if ip_info.rawIspInfo.organization.is_empty() {
                 let organization = format_offline_organization(&country_info);
@@ -427,12 +452,14 @@ Connection: close\r\n\r\n",
                 ip_info.location.org = organization.clone();
                 ip_info.location.organization = organization.clone();
                 ip_info.location.isp = organization;
+                contributed = true;
             } else {
                 ip_info.location.org = ip_info.rawIspInfo.organization.clone();
                 ip_info.location.organization = ip_info.rawIspInfo.organization.clone();
                 ip_info.location.isp = ip_info.rawIspInfo.organization.clone();
             }
         }
+        contributed
     }
 
     fn get_offline_information(raw_ip: &str) -> Option<IPInfo> {

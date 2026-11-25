@@ -1,39 +1,41 @@
-use std::sync::Arc;
-use handlebars::Handlebars;
-use serde_json::json;
-use tokio::sync::Mutex;
 use crate::config::{time, SERVER_CONFIG};
 use crate::database::Database;
 use crate::http::cookie::{make_cookie, make_discard_cookie, validate_cookie};
 use crate::http::request::Request;
 use crate::http::response::Response;
 use crate::results::TelemetryData;
+use handlebars::Handlebars;
+use serde_json::json;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn Database + Send>>) -> Response {
+pub async fn handle_stat_page(
+    request: &Request,
+    database: &mut Arc<Mutex<dyn Database + Send>>,
+) -> Response {
     let server_config = SERVER_CONFIG.get().unwrap();
-    let redirect_path = format!("{}/stats",server_config.base_url);
+    let redirect_path = format!("{}/stats", server_config.base_url);
     // check database
     if server_config.database_type == "none" {
-        return Response::res_200("Statistics are disabled")
+        return Response::res_200("Statistics are disabled");
     }
     // check stats password
     let no_password = server_config.stats_password.is_empty();
     let mut logged_in = false;
     let mut password_wrong = false;
-    let mut telemetry_list : Vec<TelemetryData> = Vec::new();
+    let mut telemetry_list: Vec<TelemetryData> = Vec::new();
 
     let mut db = database.lock().await;
 
     //check login
     if !no_password {
-
         let op = request.query_params.get("op");
         let cookie_data = request.headers.get("Cookie");
 
         if validate_cookie(cookie_data) {
             if op == Some(&"logout".to_string()) {
                 let cookie_discard = make_discard_cookie(&redirect_path);
-                return Response::res_temporary_redirect_cookie(&cookie_discard,&redirect_path)
+                return Response::res_temporary_redirect_cookie(&cookie_discard, &redirect_path);
             } else {
                 logged_in = true;
                 let def = "L100".to_string();
@@ -46,9 +48,7 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
                                 telemetry_list.append(&mut data);
                                 drop(data);
                             }
-                            Err(_) => {
-                                return Response::res_500()
-                            }
+                            Err(_) => return Response::res_500(),
                         }
                     }
                     _ => {
@@ -59,9 +59,7 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
                                     telemetry_list.push(data)
                                 }
                             }
-                            Err(_) => {
-                                return Response::res_500()
-                            }
+                            Err(_) => return Response::res_500(),
                         }
                     }
                 }
@@ -70,23 +68,31 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
             let input_pass = request.form_data.get("password");
             if input_pass == Some(&server_config.stats_password) {
                 let cookie_data = make_cookie(&redirect_path);
-                return Response::res_temporary_redirect_cookie(&cookie_data,&redirect_path)
+                return Response::res_temporary_redirect_cookie(&cookie_data, &redirect_path);
             } else {
                 password_wrong = true;
             }
         }
     }
 
+    if server_config.disable_ipinfo {
+        for telemetry in &mut telemetry_list {
+            telemetry.isp_info.clear();
+        }
+    }
+
     let mut handlebars = Handlebars::new();
-    handlebars.register_helper("formatTimestamp",Box::new(time::convert_time_local_stats));
-    handlebars.register_template_string("stats_page",HTML_TEMPLATE).unwrap();
+    handlebars.register_helper("formatTimestamp", Box::new(time::convert_time_local_stats));
+    handlebars
+        .register_template_string("stats_page", HTML_TEMPLATE)
+        .unwrap();
     let data = json!({
         "no_password": no_password,
         "logged_in": logged_in,
         "telemetry_list" : telemetry_list
     });
 
-    let rendered_html = handlebars.render("stats_page",&data);
+    let rendered_html = handlebars.render("stats_page", &data);
     match rendered_html {
         Ok(rendered_html) => {
             if password_wrong {
@@ -95,13 +101,11 @@ pub async fn handle_stat_page (request : &Request,database : &mut Arc<Mutex<dyn 
                 Response::res_200_html(&rendered_html)
             }
         }
-        Err(_) => {
-            Response::res_500()
-        }
+        Err(_) => Response::res_500(),
     }
 }
 
-const HTML_TEMPLATE : &str = r#"
+const HTML_TEMPLATE: &str = r#"
 <!DOCTYPE html>
 <html>
 <head>
