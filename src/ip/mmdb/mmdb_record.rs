@@ -40,41 +40,44 @@ pub struct MMDBResult {
 
 impl MMDBResult {
     pub fn from_value(value: &Value) -> Option<Self> {
-        let mut result = MMDBResult::default();
-        result.asn = first_string(
-            value,
-            &[&["asn"], &["autonomous_system_number"], &["as_number"]],
-        );
-        result.as_name = first_string(
-            value,
-            &[
-                &["as_name"],
-                &["autonomous_system_organization"],
-                &["organization"],
-            ],
-        );
-        result.as_domain = first_string(value, &[&["as_domain"], &["domain"]]);
-        result.continent = first_string(value, &[&["continent"], &["continent", "code"]]);
-        result.continent_name =
-            first_string(value, &[&["continent_name"], &["continent", "names", "en"]]);
-        result.country = first_string(
-            value,
-            &[
-                &["country"],
-                &["country", "iso_code"],
-                &["country_code"],
-                &["registered_country", "iso_code"],
-                &["registered_country", "code"],
-            ],
-        );
-        result.country_name = first_string(
-            value,
-            &[
-                &["country_name"],
-                &["country", "names", "en"],
-                &["registered_country", "names", "en"],
-            ],
-        );
+        let result = MMDBResult {
+            asn: first_string(
+                value,
+                &[&["asn"], &["autonomous_system_number"], &["as_number"]],
+            ),
+            as_name: first_string(
+                value,
+                &[
+                    &["as_name"],
+                    &["autonomous_system_organization"],
+                    &["organization"],
+                ],
+            ),
+            as_domain: first_string(value, &[&["as_domain"], &["domain"]]),
+            continent: first_string(value, &[&["continent"], &["continent", "code"]]),
+            continent_name: first_string(
+                value,
+                &[&["continent_name"], &["continent", "names", "en"]],
+            ),
+            country: first_string(
+                value,
+                &[
+                    &["country"],
+                    &["country", "iso_code"],
+                    &["country_code"],
+                    &["registered_country", "iso_code"],
+                    &["registered_country", "code"],
+                ],
+            ),
+            country_name: first_string(
+                value,
+                &[
+                    &["country_name"],
+                    &["country", "names", "en"],
+                    &["registered_country", "names", "en"],
+                ],
+            ),
+        };
 
         if result.asn.is_empty()
             && result.as_name.is_empty()
@@ -113,40 +116,41 @@ pub struct MMDBCityResult {
 
 impl MMDBCityResult {
     pub fn from_value(value: &Value) -> Option<Self> {
-        let mut result = MMDBCityResult::default();
-        result.city = first_string(value, &[&["city"], &["city", "names", "en"]]);
-        result.region = first_string(
-            value,
-            &[
-                &["region"],
-                &["subdivisions", "0", "names", "en"],
-                &["subdivisions", "0", "iso_code"],
-            ],
-        );
-        result.country = first_string(
-            value,
-            &[
-                &["country"],
-                &["country", "iso_code"],
-                &["country_code"],
-                &["registered_country", "iso_code"],
-            ],
-        );
-        result.country_name = first_string(
-            value,
-            &[
-                &["country_name"],
-                &["country", "names", "en"],
-                &["registered_country", "names", "en"],
-            ],
-        );
-        result.postal = first_string(value, &[&["postal"], &["postal", "code"]]);
-        result.timezone = first_string(
-            value,
-            &[&["timezone"], &["time_zone"], &["location", "time_zone"]],
-        );
-        result.latitude = first_number(value, &[&["latitude"], &["location", "latitude"]]);
-        result.longitude = first_number(value, &[&["longitude"], &["location", "longitude"]]);
+        let result = MMDBCityResult {
+            city: first_string(value, &[&["city"], &["city", "names", "en"]]),
+            region: first_string(
+                value,
+                &[
+                    &["region"],
+                    &["subdivisions", "0", "names", "en"],
+                    &["subdivisions", "0", "iso_code"],
+                ],
+            ),
+            country: first_string(
+                value,
+                &[
+                    &["country"],
+                    &["country", "iso_code"],
+                    &["country_code"],
+                    &["registered_country", "iso_code"],
+                ],
+            ),
+            country_name: first_string(
+                value,
+                &[
+                    &["country_name"],
+                    &["country", "names", "en"],
+                    &["registered_country", "names", "en"],
+                ],
+            ),
+            postal: first_string(value, &[&["postal"], &["postal", "code"]]),
+            timezone: first_string(
+                value,
+                &[&["timezone"], &["time_zone"], &["location", "time_zone"]],
+            ),
+            latitude: first_latitude(value, &[&["latitude"], &["location", "latitude"]]),
+            longitude: first_longitude(value, &[&["longitude"], &["location", "longitude"]]),
+        };
 
         if result.city.is_empty()
             && result.region.is_empty()
@@ -180,17 +184,36 @@ fn first_string(value: &Value, paths: &[&[&str]]) -> String {
     String::new()
 }
 
-fn first_number(value: &Value, paths: &[&[&str]]) -> Option<f64> {
+fn first_latitude(value: &Value, paths: &[&[&str]]) -> Option<f64> {
     for path in paths {
         if let Some(found) = value_at(value, path) {
-            if let Some(number) = found.as_f64() {
-                if number.is_finite() {
+            if let Some(number) = value_as_f64(found) {
+                if number.is_finite() && (-90.0..=90.0).contains(&number) {
                     return Some(number);
                 }
             }
         }
     }
     None
+}
+
+fn first_longitude(value: &Value, paths: &[&[&str]]) -> Option<f64> {
+    for path in paths {
+        if let Some(found) = value_at(value, path) {
+            if let Some(number) = value_as_f64(found) {
+                if number.is_finite() && (-180.0..=180.0).contains(&number) {
+                    return Some(number);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn value_as_f64(value: &Value) -> Option<f64> {
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(|text| text.parse::<f64>().ok()))
 }
 
 fn value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
@@ -206,4 +229,25 @@ fn value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
         }
     }
     Some(current)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn city_coordinates_must_be_geographically_valid() {
+        let valid = json!({
+            "location": {"latitude": 34.0522, "longitude": -118.2437}
+        });
+        let parsed = MMDBCityResult::from_value(&valid).expect("valid coordinates");
+        assert_eq!(parsed.latitude, Some(34.0522));
+        assert_eq!(parsed.longitude, Some(-118.2437));
+
+        let invalid = json!({
+            "location": {"latitude": 120.0, "longitude": 250.0}
+        });
+        assert!(MMDBCityResult::from_value(&invalid).is_none());
+    }
 }

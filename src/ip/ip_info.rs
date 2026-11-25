@@ -1,4 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -12,9 +14,11 @@ use crate::ip::mmdb::mmdb_record::{MMDBCityResult, MMDBResult};
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct IPInfo {
-    pub processedString: String,
-    pub rawIspInfo: RawISPInfo,
     #[serde(default)]
+    pub processedString: String,
+    #[serde(default, deserialize_with = "deserialize_raw_isp_info")]
+    pub rawIspInfo: RawISPInfo,
+    #[serde(default, deserialize_with = "deserialize_location_info")]
     pub location: LocationInfo,
 }
 
@@ -86,6 +90,33 @@ pub struct LocationInfo {
     pub source: String,
 }
 
+fn deserialize_raw_isp_info<'de, D>(deserializer: D) -> Result<RawISPInfo, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    if let Ok(info) = serde_json::from_value::<RawISPInfo>(value) {
+        Ok(info)
+    } else {
+        Ok(RawISPInfo::default())
+    }
+}
+
+fn deserialize_location_info<'de, D>(deserializer: D) -> Result<LocationInfo, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    if let Ok(info) = serde_json::from_value::<LocationInfo>(value) {
+        Ok(info)
+    } else {
+        Ok(LocationInfo::default())
+    }
+}
+
+static COUNTRY_MMDB_CACHE: OnceLock<Mutex<Option<(String, MMDBReader)>>> = OnceLock::new();
+static CITY_MMDB_CACHE: OnceLock<Mutex<Option<(String, CityMMDBReader)>>> = OnceLock::new();
+
 impl IPInfo {
     pub async fn fetch_information(raw_ip: &str, get_isp: bool) -> String {
         let mut ip_info_model = IPInfo::default();
@@ -142,7 +173,7 @@ impl IPInfo {
         ip_info.rawIspInfo.timezone = first_string(res_body, &[&["timezone"]]).unwrap_or_default();
         ip_info.rawIspInfo.readme = first_string(res_body, &[&["readme"]]);
 
-        let asn = first_string(
+        let mut asn = first_string(
             res_body,
             &[
                 &["asn", "asn"],
@@ -152,7 +183,7 @@ impl IPInfo {
             ],
         )
         .unwrap_or_default();
-        let as_name = first_string(
+        let mut as_name = first_string(
             res_body,
             &[
                 &["asn", "name"],
@@ -165,7 +196,7 @@ impl IPInfo {
         .unwrap_or_default();
         let as_domain = first_string(res_body, &[&["asn", "domain"], &["as_domain"], &["domain"]])
             .unwrap_or_default();
-        let org = first_string(res_body, &[&["org"]])
+        let mut org = first_string(res_body, &[&["org"]])
             .or_else(|| {
                 if !asn.is_empty() || !as_name.is_empty() {
                     Some(format_api_organization(&asn, &as_name, &as_domain))
@@ -174,6 +205,17 @@ impl IPInfo {
                 }
             })
             .unwrap_or_default();
+        if let Some((org_asn, org_name)) = parse_org_asn(&org) {
+            if asn.is_empty() {
+                asn = org_asn;
+            }
+            if as_name.is_empty() && !org_name.is_empty() {
+                as_name = org_name;
+            }
+        }
+        if org.is_empty() {
+            org = format_api_organization(&asn, &as_name, &as_domain);
+        }
 
         ip_info.rawIspInfo.organization = org.clone();
         ip_info.location.city = ip_info.rawIspInfo.city.clone();
@@ -234,28 +276,38 @@ Connection: close\r\n\r\n",
             .map(|config| config.ipinfo_api_key.clone())
             .unwrap_or_default();
 
-        if let Ok(mut client) = HttpClient::open("https://ipinfo.io").await {
-            let request = Self::ipinfo_request(raw_ip, &ip_info_token);
-            if let Ok(Some(res_body)) = client.send_request_json(request.as_bytes()).await {
-                if res_body
-                    .get("bogon")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-                {
-                    return None;
-                }
-                let ip_info = Self::parse_ipinfo_response(raw_ip, &res_body);
-                if ip_info.has_useful_location_data() {
-                    Some(ip_info)
+        match tokio::time::timeout(Duration::from_secs(5), async {
+            if let Ok(mut client) = HttpClient::open("https://ipinfo.io").await {
+                let request = Self::ipinfo_request(raw_ip, &ip_info_token);
+                if let Ok(Some(res_body)) = client.send_request_json(request.as_bytes()).await {
+                    if res_body
+                        .get("bogon")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        return None;
+                    }
+                    let ip_info = Self::parse_ipinfo_response(raw_ip, &res_body);
+                    if ip_info.has_useful_location_data() {
+                        Some(ip_info)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             } else {
+                warn!("Http client error.");
                 None
             }
-        } else {
-            warn!("Http client error.");
-            None
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                warn!("IPinfo API lookup timed out");
+                None
+            }
         }
     }
 
@@ -301,7 +353,9 @@ Connection: close\r\n\r\n",
                 ip_info.rawIspInfo.timezone = city_info.timezone.clone();
                 ip_info.location.timezone = city_info.timezone.clone();
             }
-            if ip_info.location.country_name.is_empty() {
+            if ip_info.location.country_name.is_empty()
+                && country_codes_match(&ip_info.location.country, &city_info.country)
+            {
                 ip_info.location.country_name = city_info.country_name.clone();
             }
             if ip_info.location.latitude.is_none() {
@@ -310,18 +364,15 @@ Connection: close\r\n\r\n",
             if ip_info.location.longitude.is_none() {
                 ip_info.location.longitude = city_info.longitude;
             }
-            if ip_info.location.loc.is_empty()
-                && ip_info.location.latitude.is_some()
-                && ip_info.location.longitude.is_some()
-            {
-                ip_info.location.loc = format!(
-                    "{:.6},{:.6}",
-                    ip_info.location.latitude.unwrap(),
-                    ip_info.location.longitude.unwrap()
-                );
-                ip_info.location.location = ip_info.location.loc.clone();
-                if ip_info.rawIspInfo.location.is_empty() {
-                    ip_info.rawIspInfo.location = ip_info.location.loc.clone();
+            if ip_info.location.loc.is_empty() {
+                if let (Some(latitude), Some(longitude)) =
+                    (ip_info.location.latitude, ip_info.location.longitude)
+                {
+                    ip_info.location.loc = format!("{latitude:.6},{longitude:.6}");
+                    ip_info.location.location = ip_info.location.loc.clone();
+                    if ip_info.rawIspInfo.location.is_empty() {
+                        ip_info.rawIspInfo.location = ip_info.location.loc.clone();
+                    }
                 }
             }
         }
@@ -331,17 +382,21 @@ Connection: close\r\n\r\n",
                 ip_info.rawIspInfo.country = country_info.country.clone();
                 ip_info.location.country = country_info.country.clone();
             }
-            if ip_info.location.country_name.is_empty() {
+            if ip_info.location.country_name.is_empty()
+                && country_codes_match(&ip_info.location.country, &country_info.country)
+            {
                 ip_info.location.country_name = country_info.country_name.clone();
             }
-            if ip_info.location.asn.is_empty() {
-                ip_info.location.asn = country_info.asn.clone();
-            }
-            if ip_info.location.as_name.is_empty() {
-                ip_info.location.as_name = country_info.as_name.clone();
-            }
-            if ip_info.location.as_domain.is_empty() {
-                ip_info.location.as_domain = country_info.as_domain.clone();
+            if asn_codes_match(&ip_info.location.asn, &country_info.asn) {
+                if ip_info.location.asn.is_empty() {
+                    ip_info.location.asn = country_info.asn.clone();
+                }
+                if ip_info.location.as_name.is_empty() {
+                    ip_info.location.as_name = country_info.as_name.clone();
+                }
+                if ip_info.location.as_domain.is_empty() {
+                    ip_info.location.as_domain = country_info.as_domain.clone();
+                }
             }
             if ip_info.location.continent.is_empty() {
                 ip_info.location.continent = country_info.continent.clone();
@@ -475,8 +530,22 @@ Connection: close\r\n\r\n",
             .map(|config| config.country_asn_mmdb_path.trim().to_string())
             .filter(|path| !path.is_empty())
             .unwrap_or_else(|| "country_asn.mmdb".to_string());
-        if let Some(mut ipdb_reader) = MMDBReader::from(&path) {
-            return ipdb_reader.lookup(ip);
+        let cache = COUNTRY_MMDB_CACHE.get_or_init(|| Mutex::new(None));
+        let mut cache = cache.lock().ok()?;
+        if cache
+            .as_ref()
+            .map(|(cached_path, _)| cached_path == &path)
+            .unwrap_or(false)
+        {
+            if let Some((_, reader)) = cache.as_mut() {
+                return reader.lookup(ip);
+            }
+        }
+        if let Some(reader) = MMDBReader::from(&path) {
+            *cache = Some((path.clone(), reader));
+            if let Some((_, reader)) = cache.as_mut() {
+                return reader.lookup(ip);
+            }
         }
         warn!("Unable to open country/ASN MMDB database file: {path}");
         None
@@ -490,11 +559,55 @@ Connection: close\r\n\r\n",
         if path.is_empty() {
             return None;
         }
-        if let Some(mut city_reader) = CityMMDBReader::from(&path) {
-            return city_reader.lookup(ip);
+        let cache = CITY_MMDB_CACHE.get_or_init(|| Mutex::new(None));
+        let mut cache = cache.lock().ok()?;
+        if cache
+            .as_ref()
+            .map(|(cached_path, _)| cached_path == &path)
+            .unwrap_or(false)
+        {
+            if let Some((_, reader)) = cache.as_mut() {
+                return reader.lookup(ip);
+            }
+        }
+        if let Some(reader) = CityMMDBReader::from(&path) {
+            *cache = Some((path.clone(), reader));
+            if let Some((_, reader)) = cache.as_mut() {
+                return reader.lookup(ip);
+            }
         }
         warn!("Unable to open optional city MMDB database file: {path}");
         None
+    }
+
+    pub fn warm_mmdb_readers() {
+        let country_path = SERVER_CONFIG
+            .get()
+            .map(|config| config.country_asn_mmdb_path.trim().to_string())
+            .filter(|path| !path.is_empty())
+            .unwrap_or_else(|| "country_asn.mmdb".to_string());
+        if let Some(reader) = MMDBReader::from(&country_path) {
+            if let Ok(mut cache) = COUNTRY_MMDB_CACHE.get_or_init(|| Mutex::new(None)).lock() {
+                *cache = Some((country_path.clone(), reader));
+            }
+        } else {
+            warn!("Unable to open country/ASN MMDB database file: {country_path}");
+        }
+
+        let city_path = SERVER_CONFIG
+            .get()
+            .map(|config| config.city_mmdb_path.trim().to_string())
+            .unwrap_or_default();
+        if city_path.is_empty() {
+            return;
+        }
+        if let Some(reader) = CityMMDBReader::from(&city_path) {
+            if let Ok(mut cache) = CITY_MMDB_CACHE.get_or_init(|| Mutex::new(None)).lock() {
+                *cache = Some((city_path, reader));
+            }
+        } else {
+            warn!("Unable to open optional city MMDB database file: {city_path}");
+        }
     }
 
     fn get_local_or_private_info(ip: &str) -> Option<String> {
@@ -567,10 +680,17 @@ fn value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
 }
 
 fn parse_coordinates(loc: &str) -> Option<(f64, f64)> {
-    let mut parts = loc.split(',');
-    let latitude = parts.next()?.trim().parse::<f64>().ok()?;
-    let longitude = parts.next()?.trim().parse::<f64>().ok()?;
-    if latitude.is_finite() && longitude.is_finite() {
+    let mut parts = loc.split(',').map(str::trim);
+    let latitude = parts.next()?.parse::<f64>().ok()?;
+    let longitude = parts.next()?.parse::<f64>().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    if latitude.is_finite()
+        && longitude.is_finite()
+        && (-90.0..=90.0).contains(&latitude)
+        && (-180.0..=180.0).contains(&longitude)
+    {
         Some((latitude, longitude))
     } else {
         None
@@ -626,6 +746,61 @@ fn format_api_organization(asn: &str, as_name: &str, as_domain: &str) -> String 
     } else {
         as_domain.to_string()
     }
+}
+
+fn parse_org_asn(org: &str) -> Option<(String, String)> {
+    let upper = org.to_ascii_uppercase();
+    let position = upper.find("AS")?;
+    let suffix = &org[position + 2..];
+    let digits: String = suffix
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .collect();
+    if digits.is_empty() {
+        return None;
+    }
+
+    let after = suffix[digits.len()..]
+        .trim()
+        .trim_start_matches(['-', '/', '|'])
+        .trim();
+    let before = org[..position]
+        .trim()
+        .trim_end_matches(['-', '/', '|'])
+        .trim();
+    let name = if !after.is_empty() { after } else { before }
+        .trim()
+        .to_string();
+
+    Some((format!("AS{digits}"), name))
+}
+
+fn normalize_asn(asn: &str) -> String {
+    let asn = asn.trim();
+    if asn.is_empty() {
+        return String::new();
+    }
+    let digits = if asn.len() >= 2 && asn[..2].eq_ignore_ascii_case("AS") {
+        &asn[2..]
+    } else {
+        asn
+    };
+    digits
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .collect()
+}
+
+fn asn_codes_match(api_asn: &str, offline_asn: &str) -> bool {
+    let api = normalize_asn(api_asn);
+    let offline = normalize_asn(offline_asn);
+    api.is_empty() || (!offline.is_empty() && api == offline)
+}
+
+fn country_codes_match(api_country: &str, offline_country: &str) -> bool {
+    let api = api_country.trim();
+    let offline = offline_country.trim();
+    api.is_empty() || offline.is_empty() || api.eq_ignore_ascii_case(offline)
 }
 
 fn encode_query_component(value: &str) -> String {
@@ -715,6 +890,53 @@ mod tests {
             result.rawIspInfo.organization,
             "AS10796 Charter Communications Inc"
         );
+    }
+
+    #[test]
+    fn legacy_empty_metadata_deserializes_safely() {
+        let result = serde_json::from_str::<IPInfo>(
+            r#"{"processedString":"128.94.2.134","rawIspInfo":"","location":""}"#,
+        )
+        .unwrap();
+
+        assert_eq!(result.processedString, "128.94.2.134");
+        assert_eq!(result.rawIspInfo, RawISPInfo::default());
+        assert_eq!(result.location, LocationInfo::default());
+    }
+
+    #[test]
+    fn organization_only_api_result_extracts_asn_and_name() {
+        let body = json!({
+            "ip": "128.94.2.134",
+            "country": "US",
+            "org": "AS8075 Microsoft Corporation"
+        });
+        let result = IPInfo::parse_ipinfo_response("128.94.2.134", &body);
+
+        assert_eq!(result.location.asn, "AS8075");
+        assert_eq!(result.location.as_name, "Microsoft Corporation");
+    }
+
+    #[test]
+    fn coordinates_require_two_bounded_components() {
+        assert_eq!(
+            parse_coordinates("36.6676,-78.3875"),
+            Some((36.6676, -78.3875))
+        );
+        assert_eq!(parse_coordinates("36,-78,123"), None);
+        assert_eq!(parse_coordinates("999,999"), None);
+        assert_eq!(parse_coordinates("91,0"), None);
+        assert_eq!(parse_coordinates("0,-181"), None);
+    }
+
+    #[test]
+    fn offline_merge_checks_country_and_asn_matches() {
+        assert!(country_codes_match("US", "US"));
+        assert!(country_codes_match("", "US"));
+        assert!(!country_codes_match("US", "DE"));
+        assert!(asn_codes_match("AS8075", "AS8075"));
+        assert!(asn_codes_match("", "AS8075"));
+        assert!(!asn_codes_match("AS8075", "AS15169"));
     }
 
     #[test]

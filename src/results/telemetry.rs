@@ -199,7 +199,7 @@ pub fn draw_result (data : &TelemetryData) -> Vec<u8> {
     //isp_info
     x = unit_padding;
     y = img.height() - (watermark_text_size.1 * 2) - (unit_padding * 5);
-    let isp_info : IPInfo = serde_json::from_str(&data.isp_info).unwrap();
+    let isp_info : IPInfo = serde_json::from_str(&data.isp_info).unwrap_or_default();
     draw_text_mut(&mut img,theme.text_head,x as i32,y as i32,PxScale::from(footer_scale),font,&isp_info.processedString);
     drop(isp_info);
 

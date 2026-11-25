@@ -104,10 +104,9 @@ impl HttpClient {
         let header_end =
             if let Some(index) = response.windows(4).position(|window| window == b"\r\n\r\n") {
                 (index, 4)
-            } else if let Some(index) = response.windows(2).position(|window| window == b"\n\n") {
-                (index, 2)
             } else {
-                return None;
+                let index = response.windows(2).position(|window| window == b"\n\n")?;
+                (index, 2)
             };
 
         let header = &response[..header_end.0];

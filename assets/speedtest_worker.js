@@ -708,8 +708,8 @@ function sendTelemetry(done) {
 	xhr.open("POST", settings.url_telemetry + url_sep(settings.url_telemetry) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random(), true);
 	var telemetryIspInfo = {
 		processedString: clientIp,
-		rawIspInfo: typeof ispInfo === "object" ? ispInfo : "",
-		location: typeof ispLocation === "object" ? ispLocation : ""
+		rawIspInfo: typeof ispInfo === "object" ? ispInfo : {},
+		location: typeof ispLocation === "object" ? ispLocation : {}
 	};
 	try {
 		var fd = new FormData();

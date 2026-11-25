@@ -248,6 +248,7 @@ fn initialize(mut config: ServerConfig, cmd: Cmd) -> std::io::Result<()> {
         info!("Config default assets directory.")
     }
     SERVER_CONFIG.get_or_init(|| config);
+    crate::ip::ip_info::IPInfo::warm_mmdb_readers();
     //garbage data
     let chunk_len = format!("{:X}\r\n", CHUNK_SIZE);
     let mut garbage = Vec::new();
