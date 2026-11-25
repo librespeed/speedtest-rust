@@ -11,8 +11,13 @@ worker_threads=1
 # base api url /{base_url}/routes
 base_url="backend"
 
-# ipinfo.io API key, If the api-key works, the priority is with the api, if not with the offline database
+# ipinfo.io API key. Empty uses the unauthenticated ipinfo.io JSON endpoint;
+# if the API fails, the server falls back to the offline MMDB databases.
 ipinfo_api_key=""
+
+# Optional/offline IP database paths.
+country_asn_mmdb_path="country_asn.mmdb"
+city_mmdb_path="" # Optional MaxMind GeoLite2-City/MMDB-compatible database
 
 # set directory of speedtest web front to server load on `/`. If it is empty, default web will be returned
 assets_path="./assets" # Write without suffix separator

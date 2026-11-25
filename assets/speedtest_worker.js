@@ -98,6 +98,7 @@ this.addEventListener("message", function(e) {
 				ulStatus: ulStatus,
 				pingStatus: pingStatus,
 				clientIp: clientIp,
+				location: ispLocation,
 				jitterStatus: jitterStatus,
 				dlProgress: dlProgress,
 				ulProgress: ulProgress,
@@ -291,6 +292,7 @@ function clearRequests() {
 // gets client's IP using url_getIp, then calls the done function
 var ipCalled = false; // used to prevent multiple accidental calls to getIp
 var ispInfo = ""; //used for telemetry
+var ispLocation = ""; //approximate IP-derived location metadata
 function getIp(done) {
 	tverb("getIp");
 	if (ipCalled) return;
@@ -303,9 +305,11 @@ function getIp(done) {
 			var data = JSON.parse(xhr.responseText);
 			clientIp = data.processedString;
 			ispInfo = data.rawIspInfo;
+			ispLocation = data.location && typeof data.location === "object" ? data.location : "";
 		} catch (e) {
 			clientIp = xhr.responseText;
 			ispInfo = "";
+			ispLocation = "";
 		}
 		done();
 	};
@@ -704,7 +708,8 @@ function sendTelemetry(done) {
 	xhr.open("POST", settings.url_telemetry + url_sep(settings.url_telemetry) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random(), true);
 	var telemetryIspInfo = {
 		processedString: clientIp,
-		rawIspInfo: typeof ispInfo === "object" ? ispInfo : ""
+		rawIspInfo: typeof ispInfo === "object" ? ispInfo : "",
+		location: typeof ispLocation === "object" ? ispLocation : ""
 	};
 	try {
 		var fd = new FormData();

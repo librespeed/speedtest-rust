@@ -27,8 +27,15 @@ Compatible with all librespeed clients :
 - Ping
 - Jitter
 - IP Address, ISP
+- Approximate IP-derived location metadata
 - Telemetry (optional)
 - Results sharing (optional)
+
+### IP and ISP lookup
+
+The `getIP` endpoint queries the unauthenticated [ipinfo.io](https://ipinfo.io/) JSON endpoint when `ipinfo_api_key` is empty. When an API key is configured, the key is sent in the existing authenticated request. API and offline results include the LibreSpeed `rawIspInfo` fields plus a backward-compatible top-level `location` object.
+
+Configure `country_asn_mmdb_path` for an offline country/ASN MMDB (default: `country_asn.mmdb`). Set `city_mmdb_path` to an optional MMDB-compatible city database to add approximate city, region, country, postal code, timezone, and coordinates.
 
 ## Server requirements
 - Any [Rust supported platforms](https://doc.rust-lang.org/beta/rustc/platform-support.html)
