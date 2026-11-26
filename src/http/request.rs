@@ -1,21 +1,21 @@
+use crate::config::GARBAGE_DATA;
+use crate::http::response::Response;
+use crate::http::{Method, MethodStr};
+use case_insensitive_hashmap::CaseInsensitiveHashMap as CIHashMap;
+use log::trace;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use log::trace;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
-use case_insensitive_hashmap::CaseInsensitiveHashMap as CIHashMap;
-use crate::config::GARBAGE_DATA;
-use crate::http::{Method, MethodStr};
-use crate::http::response::Response;
 
 #[derive(Debug)]
 pub struct Request {
     pub path: String,
     pub method: Method,
-    pub remote_addr : String,
+    pub remote_addr: String,
     pub query_params: HashMap<String, String>,
     pub headers: CIHashMap<String>,
-    pub form_data : HashMap<String, String>
+    pub form_data: HashMap<String, String>,
 }
 
 #[derive(Debug)]
@@ -23,16 +23,20 @@ enum BodyType {
     Fixed,
     Chunked,
     Form,
-    FormUrlEncoded
+    FormUrlEncoded,
 }
 
-pub async fn handle_socket<R,W,F>(remote_addr : &str,buf_reader: &mut BufReader<R>,buf_writer : &mut BufWriter<W>,result : F)
-    where
-R: AsyncReadExt + Unpin,
-W: AsyncWriteExt + Unpin,
-F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
+pub async fn handle_socket<R, W, F>(
+    remote_addr: &str,
+    buf_reader: &mut BufReader<R>,
+    buf_writer: &mut BufWriter<W>,
+    result: F,
+) where
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin,
+    F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>,
 {
-    'root_loop:loop {
+    'root_loop: loop {
         //read status line
         let parsed_status = {
             if let Ok(Some(status_line)) = buf_reader.lines().next_line().await {
@@ -53,14 +57,17 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
         //libraries) wait out their continue-timeout (~1s for curl) on every upload request.
         if let Some(expect) = parsed_headers.get("Expect") {
             if expect.eq_ignore_ascii_case("100-continue")
-                && buf_writer.write_all(b"HTTP/1.1 100 Continue\r\n\r\n").await.is_ok()
+                && buf_writer
+                    .write_all(b"HTTP/1.1 100 Continue\r\n\r\n")
+                    .await
+                    .is_ok()
             {
                 let _ = buf_writer.flush().await;
             }
         }
         //read body content
         let body_form_data = {
-            let (body_type,body_size) = check_has_body(&parsed_headers);
+            let (body_type, body_size) = check_has_body(&parsed_headers);
             match body_type {
                 Some(body_type) => {
                     match body_type {
@@ -89,9 +96,7 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                                     buffer.fill(0);
                                     None
                                 }
-                                None => {
-                                    None
-                                }
+                                None => None,
                             }
                         }
                         BodyType::Chunked => {
@@ -114,50 +119,47 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
                             None
                         }
                         BodyType::Form => {
-                            let form_boundary = get_content_boundary(parsed_headers.get("Content-Type").unwrap());
+                            let form_boundary =
+                                get_content_boundary(parsed_headers.get("Content-Type").unwrap());
                             match form_boundary {
-                                Some(form_boundary) => {
-                                    match body_size {
-                                        Some(body_size) => {
-                                            let mut body = Vec::with_capacity(body_size as usize);
-                                            buf_reader.take(body_size).read_to_end(&mut body).await.unwrap();
-                                            let form_data = parse_form_data(&form_boundary,&body);
-                                            body.fill(0);
-                                            Some(form_data)
-                                        }
-                                        None => {
-                                            None
-                                        }
+                                Some(form_boundary) => match body_size {
+                                    Some(body_size) => {
+                                        let mut body = Vec::with_capacity(body_size as usize);
+                                        buf_reader
+                                            .take(body_size)
+                                            .read_to_end(&mut body)
+                                            .await
+                                            .unwrap();
+                                        let form_data = parse_form_data(&form_boundary, &body);
+                                        body.fill(0);
+                                        Some(form_data)
                                     }
-                                }
-                                None => {
-                                    None
-                                }
+                                    None => None,
+                                },
+                                None => None,
                             }
                         }
-                        BodyType::FormUrlEncoded => {
-                            match body_size {
-                                Some(body_size) => {
-                                    let mut body = Vec::with_capacity(body_size as usize);
-                                    buf_reader.take(body_size).read_to_end(&mut body).await.unwrap();
-                                    let form_data = parse_form_url_encoded(&body);
-                                    body.fill(0);
-                                    Some(form_data)
-                                }
-                                None => {
-                                    None
-                                }
+                        BodyType::FormUrlEncoded => match body_size {
+                            Some(body_size) => {
+                                let mut body = Vec::with_capacity(body_size as usize);
+                                buf_reader
+                                    .take(body_size)
+                                    .read_to_end(&mut body)
+                                    .await
+                                    .unwrap();
+                                let form_data = parse_form_url_encoded(&body);
+                                body.fill(0);
+                                Some(form_data)
                             }
-                        }
+                            None => None,
+                        },
                     }
                 }
-                None => {
-                    None
-                }
+                None => None,
             }
         };
         //trust proxy
-        let remote_addr = trust_addr_proxy(&parsed_headers,remote_addr);
+        let remote_addr = trust_addr_proxy(&parsed_headers, remote_addr);
         //gen request
         let response = result(Request {
             path: parsed_status.1,
@@ -165,8 +167,9 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
             remote_addr,
             query_params: parsed_status.2,
             headers: parsed_headers,
-            form_data : body_form_data.clone().unwrap_or(HashMap::new())
-        }).await;
+            form_data: body_form_data.clone().unwrap_or(HashMap::new()),
+        })
+        .await;
         if let Err(e) = buf_writer.write_all(&response.data).await {
             trace!("Error socket write : {e}")
         }
@@ -187,8 +190,9 @@ F: Send + Sync + Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>>
 }
 
 //allow http 1.* & POST, GET, OPTIONS methods
-fn check_is_status_line (line : String) -> bool {
-    line.contains("http/1.") && (line.starts_with("get") || line.starts_with("options") || line.starts_with("post"))
+fn check_is_status_line(line: String) -> bool {
+    line.contains("http/1.")
+        && (line.starts_with("get") || line.starts_with("options") || line.starts_with("post"))
 }
 
 #[allow(dead_code)]
@@ -198,17 +202,20 @@ fn hex_string_to_int(hex_string: &str) -> Option<u64> {
 
 pub async fn header_parser<R>(buf_reader: &mut BufReader<R>) -> CIHashMap<String>
 where
-    R: AsyncReadExt + Unpin
+    R: AsyncReadExt + Unpin,
 {
     let mut headers_out = CIHashMap::new();
-    'header_loop:loop {
+    'header_loop: loop {
         if let Ok(Some(header_line)) = buf_reader.lines().next_line().await {
             if header_line.is_empty() {
                 break 'header_loop;
             } else {
                 let mut header_parts = header_line.splitn(2, ':');
-                if let (Some(header_key),Some(header_val)) = (header_parts.next(),header_parts.next()) {
-                    headers_out.insert(header_key.trim().to_string(),header_val.trim().to_string());
+                if let (Some(header_key), Some(header_val)) =
+                    (header_parts.next(), header_parts.next())
+                {
+                    headers_out
+                        .insert(header_key.trim().to_string(), header_val.trim().to_string());
                 }
             }
         } else {
@@ -218,7 +225,7 @@ where
     headers_out
 }
 
-fn check_has_body(headers : &CIHashMap<String>) -> (Option<BodyType>,Option<u64>) {
+fn check_has_body(headers: &CIHashMap<String>) -> (Option<BodyType>, Option<u64>) {
     let content_type_form = if let Some(content_type) = headers.get("Content-Type") {
         if content_type.starts_with("multipart/form-data;") {
             Some(BodyType::Form)
@@ -239,24 +246,24 @@ fn check_has_body(headers : &CIHashMap<String>) -> (Option<BodyType>,Option<u64>
             } else {
                 BodyType::Fixed
             };
-            return (Some(body_type),Some(content_len))
+            return (Some(body_type), Some(content_len));
         };
     };
     //check chunked body
     if let Some(transfer_encoding) = headers.get("Transfer-Encoding") {
         if transfer_encoding == "chunked" {
-            return (Some(BodyType::Chunked),Some(0))
+            return (Some(BodyType::Chunked), Some(0));
         }
     }
-    (None,None)
+    (None, None)
 }
 
-fn parse_request_status_line (line : String) -> (Method,String,HashMap<String, String>) {
+fn parse_request_status_line(line: String) -> (Method, String, HashMap<String, String>) {
     let mut split_status = line.split(' ');
     let method_str = split_status.next().unwrap();
     let raw_path = split_status.next().unwrap();
-    let (path,query_params) = parse_raw_path(raw_path);
-    (method_str.to_method(),path.to_string(),query_params)
+    let (path, query_params) = parse_raw_path(raw_path);
+    (method_str.to_method(), path.to_string(), query_params)
 }
 
 fn parse_raw_path(raw_path: &str) -> (&str, HashMap<String, String>) {
@@ -270,7 +277,7 @@ fn parse_raw_path(raw_path: &str) -> (&str, HashMap<String, String>) {
         let split_raw_query_params = raw_query_params.split('&');
         for part in split_raw_query_params {
             let mut split_part = part.split('=');
-            if let (Some(query_key),Some(query_val)) = (split_part.next(),split_part.next())  {
+            if let (Some(query_key), Some(query_val)) = (split_part.next(), split_part.next()) {
                 query_params.insert(query_key.to_string(), query_val.to_string());
             }
         }
@@ -286,27 +293,30 @@ fn clear_path_end_slash(input: &str) -> &str {
     }
 }
 
-fn trust_addr_proxy(headers : &CIHashMap<String>,remote_addr : &str) -> String {
-    headers.get("X-Real-IP")
+fn trust_addr_proxy(headers: &CIHashMap<String>, remote_addr: &str) -> String {
+    headers
+        .get("X-Real-IP")
         .map(|s| s.as_str())
         .or_else(|| {
-            headers.get("X-Forwarded-For").and_then(|s| {
-                s.split(',').next().map(|ip| ip.trim())
-            })
-        }).unwrap_or(remote_addr).to_string()
+            headers
+                .get("X-Forwarded-For")
+                .and_then(|s| s.split(',').next().map(|ip| ip.trim()))
+        })
+        .unwrap_or(remote_addr)
+        .to_string()
 }
 
 //form-data-parser
-fn get_content_boundary(content_type : &str) -> Option<String> {
+fn get_content_boundary(content_type: &str) -> Option<String> {
     let parts = content_type.split(';');
     let mut boundary = None;
     for part in parts {
         let part = part.trim();
         if part.starts_with("boundary=") {
-            let mut boundary_str = part.splitn(2,'=');
+            let mut boundary_str = part.splitn(2, '=');
             let boundary_result = boundary_str.nth(1);
             match boundary_result {
-                None => {},
+                None => {}
                 Some(boundary_result) => {
                     let mut boundary_p = "--".to_string();
                     boundary_p.push_str(boundary_result);
@@ -319,22 +329,22 @@ fn get_content_boundary(content_type : &str) -> Option<String> {
     boundary
 }
 
-fn parse_form_data(boundary : &str,body : &[u8]) -> HashMap<String,String> {
+fn parse_form_data(boundary: &str, body: &[u8]) -> HashMap<String, String> {
     let body_str = String::from_utf8_lossy(body);
     let mut form_data = HashMap::new();
     let form_parts = body_str.split(boundary);
     for form_part in form_parts {
         let form_part = form_part.trim();
         if !form_part.is_empty() && form_part != "--" {
-            let mut body_parts = form_part.splitn(2,"\r\n");  //Content-Disposition: form-data; name="key"\r\nvalue
-            if let (Some(disposition),Some(value)) = (body_parts.next(),body_parts.next()) {
-                let value = value.replace("\r\n","");
+            let mut body_parts = form_part.splitn(2, "\r\n"); //Content-Disposition: form-data; name="key"\r\nvalue
+            if let (Some(disposition), Some(value)) = (body_parts.next(), body_parts.next()) {
+                let value = value.replace("\r\n", "");
                 //parse key
-                let mut split_disposition = disposition.splitn(2,';');
+                let mut split_disposition = disposition.splitn(2, ';');
                 if let Some(name_part) = split_disposition.nth(1) {
-                    if let Some(key) = name_part.split_once('=').map(|x|x.1) {
-                        let key = key.replace('"',"");
-                        form_data.insert(key,value);
+                    if let Some(key) = name_part.split_once('=').map(|x| x.1) {
+                        let key = key.replace('"', "");
+                        form_data.insert(key, value);
                     }
                 }
             }
@@ -343,16 +353,16 @@ fn parse_form_data(boundary : &str,body : &[u8]) -> HashMap<String,String> {
     form_data
 }
 
-fn parse_form_url_encoded(body : &[u8]) -> HashMap<String,String> {
+fn parse_form_url_encoded(body: &[u8]) -> HashMap<String, String> {
     let body_str = String::from_utf8_lossy(body);
     let split_parts = body_str.split('&');
     let mut form_data = HashMap::new();
     for part in split_parts {
-        let mut split_key_value = part.splitn(2,'=');
-        if let (Some(key),Some(value)) = (split_key_value.next(),split_key_value.next()) {
-            form_data.insert(key.to_string(),value.to_string());
+        let mut split_key_value = part.splitn(2, '=');
+        if let (Some(key), Some(value)) = (split_key_value.next(), split_key_value.next()) {
+            form_data.insert(key.to_string(), value.to_string());
         }
-    };
+    }
     form_data
 }
 
@@ -368,7 +378,9 @@ mod tests {
     }
 
     fn count_occurrences(haystack: &[u8], needle: &[u8]) -> usize {
-        if needle.is_empty() || haystack.len() < needle.len() { return 0; }
+        if needle.is_empty() || haystack.len() < needle.len() {
+            return 0;
+        }
         let mut count = 0;
         let mut i = 0;
         while i + needle.len() <= haystack.len() {
@@ -413,7 +425,9 @@ mod tests {
     #[tokio::test]
     async fn expect_100_continue_receives_interim_response() {
         let mut raw = Vec::new();
-        raw.extend_from_slice(b"POST /empty HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 2048\r\n\r\n");
+        raw.extend_from_slice(
+            b"POST /empty HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 2048\r\n\r\n",
+        );
         raw.extend_from_slice(&vec![b'x'; 2048]);
         let out = drive(raw).await;
         assert!(

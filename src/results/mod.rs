@@ -1,24 +1,24 @@
+use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use std::str::FromStr;
-use serde::{Deserialize, Serialize};
 
-pub mod telemetry;
 pub mod stats;
+pub mod telemetry;
 
-#[derive(Deserialize,Serialize, Debug,Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TelemetryData {
-    pub ip_address : String,
-    pub isp_info : String,
-    pub extra : String,
-    pub user_agent : String,
-    pub lang : String,
-    pub download : String,
-    pub upload : String,
-    pub ping : String,
-    pub jitter : String,
-    pub log : String,
-    pub uuid : String,
-    pub timestamp : i64,
+    pub ip_address: String,
+    pub isp_info: String,
+    pub extra: String,
+    pub user_agent: String,
+    pub lang: String,
+    pub download: String,
+    pub upload: String,
+    pub ping: String,
+    pub jitter: String,
+    pub log: String,
+    pub uuid: String,
+    pub timestamp: i64,
 }
 
 pub fn redact_hostname(s: &mut String, replacement: &str) {
@@ -48,7 +48,11 @@ pub fn redact_all_ips(s: &mut String, replacement: &str) {
     while idx < len {
         let max_ip_length = 39; // IPV6 max len
         let remaining = len - idx;
-        let max_len = if remaining < max_ip_length { remaining } else { max_ip_length };
+        let max_len = if remaining < max_ip_length {
+            remaining
+        } else {
+            max_ip_length
+        };
         let mut replaced = false;
         for l in (2..=max_len).rev() {
             let end = idx + l;

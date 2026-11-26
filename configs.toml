@@ -11,8 +11,16 @@ worker_threads=1
 # base api url /{base_url}/routes
 base_url="backend"
 
-# ipinfo.io API key, If the api-key works, the priority is with the api, if not with the offline database
+# ipinfo.io API key. Local MMDB data is checked first; an empty key uses
+# the unauthenticated ipinfo.io fallback/supplement, with API failures falling back to MMDB.
 ipinfo_api_key=""
+
+# Privacy opt-out: return IP-only getIP responses with no API or MMDB ISP/location metadata
+disable_ipinfo=false
+
+# Optional/offline IP database paths.
+country_asn_mmdb_path="country_asn.mmdb"
+city_mmdb_path="" # Optional MaxMind GeoLite2-City/MMDB-compatible database
 
 # set directory of speedtest web front to server load on `/`. If it is empty, default web will be returned
 assets_path="./assets" # Write without suffix separator

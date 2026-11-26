@@ -1,17 +1,19 @@
-use std::sync::Arc;
+use crate::database::{DBRawToStruct, Database};
+use crate::results::TelemetryData;
 use async_trait::async_trait;
 use log::info;
-use sqlx::{postgres::{PgPool, PgPoolOptions, PgRow}, Row};
+use sqlx::{
+    postgres::{PgPool, PgPoolOptions, PgRow},
+    Row,
+};
+use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::database::{Database, DBRawToStruct};
-use crate::results::TelemetryData;
 
 pub struct Postgres {
     pool: PgPool,
 }
 
 impl Postgres {
-    
     pub async fn init(
         username: &Option<String>,
         password: &Option<String>,
@@ -19,7 +21,9 @@ impl Postgres {
         db_name: &Option<String>,
     ) -> std::io::Result<Arc<Mutex<Postgres>>> {
         if username.is_none() || password.is_none() || host_name.is_none() || db_name.is_none() {
-            return Err(std::io::Error::other("Error postgres initialize parameters."));
+            return Err(std::io::Error::other(
+                "Error postgres initialize parameters.",
+            ));
         }
 
         let conn_url = format!(
@@ -52,21 +56,28 @@ impl Postgres {
                     log text,
                     uuid text,
                     \"timestamp\" bigint
-                )").execute(&pool).await;
+                )",
+                )
+                .execute(&pool)
+                .await;
 
                 match create_table {
                     Ok(_) => {
                         info!("Database Postgres initialized successfully");
-                        Ok(Arc::new(Mutex::new(Postgres{ pool })))
-                    },
-                    Err(e) => Err(std::io::Error::other(format!("Error setup postgres {:?}", e))),
+                        Ok(Arc::new(Mutex::new(Postgres { pool })))
+                    }
+                    Err(e) => Err(std::io::Error::other(format!(
+                        "Error setup postgres {:?}",
+                        e
+                    ))),
                 }
             }
-            Err(e) => Err(std::io::Error::other(format!("Error setup postgres {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error setup postgres {:?}",
+                e
+            ))),
         }
-        
     }
-    
 }
 
 impl DBRawToStruct<sqlx::Error> for PgRow {
@@ -114,7 +125,10 @@ impl Database for Postgres {
 
         match insert {
             Ok(_) => Ok(()),
-            Err(e) => Err(std::io::Error::other(format!("Error insert postgres {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error insert postgres {:?}",
+                e
+            ))),
         }
     }
 
@@ -130,7 +144,10 @@ impl Database for Postgres {
                 Err(_) => Ok(None),
             },
             Ok(None) => Ok(None),
-            Err(e) => Err(std::io::Error::other(format!("Error select postgres {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error select postgres {:?}",
+                e
+            ))),
         }
     }
 
@@ -147,7 +164,10 @@ impl Database for Postgres {
                     .collect();
                 Ok(result)
             }
-            Err(e) => Err(std::io::Error::other(format!("Error select postgres {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error select postgres {:?}",
+                e
+            ))),
         }
     }
 }

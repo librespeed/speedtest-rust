@@ -1,24 +1,25 @@
-use std::sync::Arc;
+use crate::database::{DBRawToStruct, Database};
+use crate::results::TelemetryData;
 use async_trait::async_trait;
 use log::info;
-use sqlx::{sqlite::{SqlitePool, SqlitePoolOptions, SqliteRow}, Row};
+use sqlx::{
+    sqlite::{SqlitePool, SqlitePoolOptions, SqliteRow},
+    Row,
+};
+use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::database::{Database, DBRawToStruct};
-use crate::results::TelemetryData;
 
 pub struct SQLite {
     pool: SqlitePool,
 }
 
 impl SQLite {
-    
-    pub async fn init(
-        database_file: &Option<String>
-    ) -> std::io::Result<Arc<Mutex<SQLite>>> {
+    pub async fn init(database_file: &Option<String>) -> std::io::Result<Arc<Mutex<SQLite>>> {
         match database_file {
-            None => Err(std::io::Error::other("Error setup sqlite invalid database file.")),
+            None => Err(std::io::Error::other(
+                "Error setup sqlite invalid database file.",
+            )),
             Some(database_file) => {
-                
                 let url = format!("sqlite://{}?mode=rwc", database_file);
 
                 let pool = SqlitePoolOptions::new()
@@ -43,13 +44,18 @@ impl SQLite {
                             log TEXT,
                             uuid TEXT,
                             timestamp INTEGER
-                        )").execute(&pool).await;
+                        )",
+                        )
+                        .execute(&pool)
+                        .await;
                         match create_table {
                             Ok(_) => {
                                 info!("Database Sqlite initialized successfully");
                                 Ok(Arc::new(Mutex::new(SQLite { pool })))
-                            },
-                            Err(e) => Err(std::io::Error::other(format!("Error setup sqlite {:?}", e))),
+                            }
+                            Err(e) => {
+                                Err(std::io::Error::other(format!("Error setup sqlite {:?}", e)))
+                            }
                         }
                     }
                     Err(e) => Err(std::io::Error::other(format!("Error setup sqlite {:?}", e))),
@@ -57,7 +63,6 @@ impl SQLite {
             }
         }
     }
-    
 }
 
 impl DBRawToStruct<sqlx::Error> for SqliteRow {
@@ -105,7 +110,10 @@ impl Database for SQLite {
 
         match insert {
             Ok(_) => Ok(()),
-            Err(e) => Err(std::io::Error::other(format!("Error insert sqlite {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error insert sqlite {:?}",
+                e
+            ))),
         }
     }
 
@@ -121,7 +129,10 @@ impl Database for SQLite {
                 Err(_) => Ok(None),
             },
             Ok(None) => Ok(None),
-            Err(e) => Err(std::io::Error::other(format!("Error select sqlite {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error select sqlite {:?}",
+                e
+            ))),
         }
     }
 
@@ -138,7 +149,10 @@ impl Database for SQLite {
                     .collect();
                 Ok(result)
             }
-            Err(e) => Err(std::io::Error::other(format!("Error select sqlite {:?}", e))),
+            Err(e) => Err(std::io::Error::other(format!(
+                "Error select sqlite {:?}",
+                e
+            ))),
         }
     }
 }
