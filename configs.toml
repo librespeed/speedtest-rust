@@ -15,7 +15,7 @@ base_url="backend"
 # if the API fails, the server falls back to the offline MMDB databases.
 ipinfo_api_key=""
 
-# Privacy opt-out: disable ipinfo.io provider lookups and use offline MMDB fallback only
+# Privacy opt-out: return IP-only getIP responses with no API or MMDB ISP/location metadata
 disable_ipinfo=false
 
 # Optional/offline IP database paths.

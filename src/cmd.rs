@@ -73,7 +73,7 @@ impl Cmd {
             .arg(
                 Arg::new("disable-ipinfo")
                     .long("disable-ipinfo")
-                    .help("Disable ipinfo.io API lookups and use offline MMDB fallback only")
+                    .help("Disable ipinfo/MMDB ISP and location metadata and return IP-only getIP responses")
                     .value_parser(value_parser!(bool)),
             )
             .arg(

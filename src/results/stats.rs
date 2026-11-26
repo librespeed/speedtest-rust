@@ -3,6 +3,7 @@ use crate::database::Database;
 use crate::http::cookie::{make_cookie, make_discard_cookie, validate_cookie};
 use crate::http::request::Request;
 use crate::http::response::Response;
+use crate::results::telemetry::sanitize_ipinfo_privacy;
 use crate::results::TelemetryData;
 use handlebars::Handlebars;
 use serde_json::json;
@@ -77,7 +78,7 @@ pub async fn handle_stat_page(
 
     if server_config.disable_ipinfo {
         for telemetry in &mut telemetry_list {
-            telemetry.isp_info.clear();
+            sanitize_ipinfo_privacy(true, &mut telemetry.isp_info, &mut telemetry.log);
         }
     }
 

@@ -17,6 +17,17 @@ use crate::ip::ip_info::IPInfo;
 use crate::results;
 use crate::results::TelemetryData;
 
+pub(crate) fn sanitize_ipinfo_privacy(
+    disable_ipinfo: bool,
+    isp_info: &mut String,
+    log: &mut String,
+) {
+    if disable_ipinfo {
+        isp_info.clear();
+        log.clear();
+    }
+}
+
 pub async fn record_result(
     request: &Request,
     database: &mut Arc<Mutex<dyn Database + Send>>,
@@ -35,9 +46,7 @@ pub async fn record_result(
     let uuid = generate_uuid();
 
     let config = SERVER_CONFIG.get().unwrap();
-    if config.disable_ipinfo {
-        isp_info.clear();
-    }
+    sanitize_ipinfo_privacy(config.disable_ipinfo, &mut isp_info, &mut log);
     if config.redact_ip_addresses {
         ip_address = "0.0.0.0".to_string();
         results::redact_hostname(&mut isp_info, "\"hostname\":\"REDACTED\"");
@@ -368,4 +377,31 @@ pub fn draw_result(data: &TelemetryData) -> Vec<u8> {
     drop(img);
 
     buffer.into_inner()
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::sanitize_ipinfo_privacy;
+
+    #[test]
+    fn disable_ipinfo_clears_isp_and_log_data() {
+        let mut isp_info = String::from("{\"org\":\"AS8075 Microsoft\"}");
+        let mut log = String::from("IP: 128.94.2.134\nloc: 36.6676,-78.3875");
+
+        sanitize_ipinfo_privacy(true, &mut isp_info, &mut log);
+
+        assert!(isp_info.is_empty());
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn enabled_ipinfo_preserves_isp_and_log_data() {
+        let mut isp_info = String::from("{\"org\":\"AS8075 Microsoft\"}");
+        let mut log = String::from("IP: 128.94.2.134");
+
+        sanitize_ipinfo_privacy(false, &mut isp_info, &mut log);
+
+        assert_eq!(isp_info, "{\"org\":\"AS8075 Microsoft\"}");
+        assert_eq!(log, "IP: 128.94.2.134");
+    }
 }

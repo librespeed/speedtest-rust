@@ -118,6 +118,21 @@ static COUNTRY_MMDB_CACHE: OnceLock<Mutex<Option<(String, MMDBReader)>>> = OnceL
 static CITY_MMDB_CACHE: OnceLock<Mutex<Option<(String, CityMMDBReader)>>> = OnceLock::new();
 
 impl IPInfo {
+    pub fn ip_only_response(raw_ip: &str) -> IPInfo {
+        IPInfo {
+            processedString: raw_ip.to_string(),
+            rawIspInfo: RawISPInfo {
+                ip: raw_ip.to_string(),
+                ..RawISPInfo::default()
+            },
+            location: LocationInfo {
+                ip: raw_ip.to_string(),
+                source: "none".to_string(),
+                ..LocationInfo::default()
+            },
+        }
+    }
+
     pub async fn fetch_information(raw_ip: &str, get_isp: bool) -> String {
         let mut ip_info_model = IPInfo::default();
         ip_info_model.rawIspInfo.ip = raw_ip.to_string();
@@ -127,6 +142,14 @@ impl IPInfo {
             ip_info_model.processedString = raw_ip.to_string();
             ip_info_model.location.source = "none".to_string();
             return json!(ip_info_model).to_string();
+        }
+
+        if SERVER_CONFIG
+            .get()
+            .map(|config| config.disable_ipinfo)
+            .unwrap_or(false)
+        {
+            return json!(Self::ip_only_response(raw_ip)).to_string();
         }
 
         if let Some(local_ip_info) = Self::get_local_or_private_info(raw_ip) {
@@ -438,11 +461,15 @@ Connection: close\r\n\r\n",
                     contributed = true;
                 }
             }
-            if ip_info.location.continent.is_empty() {
+            if ip_info.location.continent.is_empty()
+                && country_codes_match(&ip_info.location.country, &country_info.country)
+            {
                 ip_info.location.continent = country_info.continent.clone();
                 contributed = true;
             }
-            if ip_info.location.continent_name.is_empty() {
+            if ip_info.location.continent_name.is_empty()
+                && country_codes_match(&ip_info.location.country, &country_info.country)
+            {
                 ip_info.location.continent_name = country_info.continent_name.clone();
                 contributed = true;
             }
@@ -498,12 +525,25 @@ Connection: close\r\n\r\n",
         }
 
         if let Some(country_info) = country_info {
-            if ip_info.rawIspInfo.country.is_empty() {
-                ip_info.rawIspInfo.country = country_info.country.clone();
-                ip_info.location.country = country_info.country.clone();
-            }
-            if ip_info.location.country_name.is_empty() {
-                ip_info.location.country_name = country_info.country_name.clone();
+            if ip_info.location.country.is_empty()
+                || country_codes_match(&ip_info.location.country, &country_info.country)
+            {
+                if ip_info.rawIspInfo.country.is_empty() && !country_info.country.is_empty() {
+                    ip_info.rawIspInfo.country = country_info.country.clone();
+                    ip_info.location.country = country_info.country.clone();
+                }
+                if ip_info.location.country_name.is_empty() && !country_info.country_name.is_empty()
+                {
+                    ip_info.location.country_name = country_info.country_name.clone();
+                }
+                if ip_info.location.continent.is_empty() && !country_info.continent.is_empty() {
+                    ip_info.location.continent = country_info.continent.clone();
+                }
+                if ip_info.location.continent_name.is_empty()
+                    && !country_info.continent_name.is_empty()
+                {
+                    ip_info.location.continent_name = country_info.continent_name.clone();
+                }
             }
 
             let organization = format_offline_organization(&country_info);
@@ -871,6 +911,18 @@ fn encode_query_component(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ip_only_response_has_no_isp_or_location_metadata() {
+        let result = IPInfo::ip_only_response("128.94.2.134");
+
+        assert_eq!(result.processedString, "128.94.2.134");
+        assert_eq!(result.rawIspInfo.ip, "128.94.2.134");
+        assert_eq!(result.location.ip, "128.94.2.134");
+        assert_eq!(result.location.source, "none");
+        assert!(result.rawIspInfo.organization.is_empty());
+        assert!(result.location.location.is_empty());
+    }
 
     #[test]
     fn ipinfo_request_is_unauthenticated_when_key_is_empty() {
