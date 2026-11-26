@@ -11,8 +11,8 @@ worker_threads=1
 # base api url /{base_url}/routes
 base_url="backend"
 
-# ipinfo.io API key. Empty uses the unauthenticated ipinfo.io JSON endpoint;
-# if the API fails, the server falls back to the offline MMDB databases.
+# ipinfo.io API key. Local MMDB data is checked first; an empty key uses
+# the unauthenticated ipinfo.io fallback/supplement, with API failures falling back to MMDB.
 ipinfo_api_key=""
 
 # Privacy opt-out: return IP-only getIP responses with no API or MMDB ISP/location metadata

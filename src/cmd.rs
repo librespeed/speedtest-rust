@@ -67,7 +67,7 @@ impl Cmd {
             .arg(
                 Arg::new("ipinfo-api-key")
                     .long("ipinfo-api-key")
-                    .help("Specify the ipinfo API key")
+                    .help("Specify the ipinfo API key for validated supplement/fallback lookup")
                     .value_parser(value_parser!(String)),
             )
             .arg(

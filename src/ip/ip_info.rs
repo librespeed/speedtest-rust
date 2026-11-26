@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -116,6 +116,8 @@ where
 
 static COUNTRY_MMDB_CACHE: OnceLock<Mutex<Option<(String, MMDBReader)>>> = OnceLock::new();
 static CITY_MMDB_CACHE: OnceLock<Mutex<Option<(String, CityMMDBReader)>>> = OnceLock::new();
+static IPINFO_COOLDOWN_UNTIL: OnceLock<Mutex<Option<Instant>>> = OnceLock::new();
+const IPINFO_FAILURE_COOLDOWN: Duration = Duration::from_secs(30);
 
 impl IPInfo {
     pub fn ip_only_response(raw_ip: &str) -> IPInfo {
@@ -158,13 +160,29 @@ impl IPInfo {
             return json!(ip_info_model).to_string();
         }
 
+        if let Some(offline_info) = Self::get_offline_information(raw_ip) {
+            if let Some(mut api_info) = Self::get_ipinfo_information(raw_ip).await {
+                let offline_contributed = Self::merge_offline_location(raw_ip, &mut api_info);
+                if offline_contributed {
+                    api_info.location.source = "ipinfo+mmdb".to_string();
+                } else {
+                    api_info.location.source = "ipinfo".to_string();
+                }
+                api_info.processedString = Self::build_processed_string(
+                    raw_ip,
+                    &api_info.rawIspInfo.organization,
+                    &api_info.rawIspInfo.country,
+                    &api_info.rawIspInfo.city,
+                    &api_info.rawIspInfo.region,
+                    &api_info.location.country_name,
+                );
+                return json!(api_info).to_string();
+            }
+            return json!(offline_info).to_string();
+        }
+
         if let Some(mut api_info) = Self::get_ipinfo_information(raw_ip).await {
-            let offline_contributed = Self::merge_offline_location(raw_ip, &mut api_info);
-            api_info.location.source = if offline_contributed {
-                "ipinfo+mmdb".to_string()
-            } else {
-                "ipinfo".to_string()
-            };
+            api_info.location.source = "ipinfo".to_string();
             api_info.processedString = Self::build_processed_string(
                 raw_ip,
                 &api_info.rawIspInfo.organization,
@@ -174,10 +192,6 @@ impl IPInfo {
                 &api_info.location.country_name,
             );
             return json!(api_info).to_string();
-        }
-
-        if let Some(offline_info) = Self::get_offline_information(raw_ip) {
-            return json!(offline_info).to_string();
         }
 
         ip_info_model.processedString = raw_ip.to_string();
@@ -303,12 +317,46 @@ Connection: close\r\n\r\n",
         }
     }
 
+    fn ipinfo_in_cooldown() -> bool {
+        if let Some(cooldown) = IPINFO_COOLDOWN_UNTIL
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .ok()
+            .and_then(|guard| *guard)
+        {
+            cooldown > Instant::now()
+        } else {
+            false
+        }
+    }
+
+    fn start_ipinfo_cooldown() {
+        if let Ok(mut cooldown) = IPINFO_COOLDOWN_UNTIL
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+        {
+            *cooldown = Some(Instant::now() + IPINFO_FAILURE_COOLDOWN);
+        }
+    }
+
+    fn clear_ipinfo_cooldown() {
+        if let Ok(mut cooldown) = IPINFO_COOLDOWN_UNTIL
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+        {
+            *cooldown = None;
+        }
+    }
+
     async fn get_ipinfo_information(raw_ip: &str) -> Option<IPInfo> {
         if SERVER_CONFIG
             .get()
             .map(|config| config.disable_ipinfo)
             .unwrap_or(false)
         {
+            return None;
+        }
+        if Self::ipinfo_in_cooldown() {
             return None;
         }
         let ip_info_token = SERVER_CONFIG
@@ -343,9 +391,17 @@ Connection: close\r\n\r\n",
         })
         .await
         {
-            Ok(result) => result,
+            Ok(result) => {
+                if result.is_some() {
+                    Self::clear_ipinfo_cooldown();
+                } else {
+                    Self::start_ipinfo_cooldown();
+                }
+                result
+            }
             Err(_) => {
                 warn!("IPinfo API lookup timed out");
+                Self::start_ipinfo_cooldown();
                 None
             }
         }
@@ -911,6 +967,16 @@ fn encode_query_component(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ipinfo_cooldown_can_be_started_and_cleared() {
+        IPInfo::clear_ipinfo_cooldown();
+        assert!(!IPInfo::ipinfo_in_cooldown());
+        IPInfo::start_ipinfo_cooldown();
+        assert!(IPInfo::ipinfo_in_cooldown());
+        IPInfo::clear_ipinfo_cooldown();
+        assert!(!IPInfo::ipinfo_in_cooldown());
+    }
 
     #[test]
     fn ip_only_response_has_no_isp_or_location_metadata() {

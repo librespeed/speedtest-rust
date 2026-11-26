@@ -33,7 +33,7 @@ Compatible with all librespeed clients :
 
 ### IP and ISP lookup
 
-The `getIP` endpoint uses API-first IP metadata lookup: it queries the unauthenticated [ipinfo.io](https://ipinfo.io/) JSON endpoint when `ipinfo_api_key` is empty, or sends the configured API key when one is present. The operator's API choice is still the existing authenticated-request path. If the API lookup fails or stalls, the server falls back to the offline MMDB data.
+The `getIP` endpoint uses a local-MMDB-first provider chain: it resolves public addresses from `country_asn.mmdb` and optional city MMDB data before contacting [ipinfo.io](https://ipinfo.io/). Keyless requests use the unauthenticated JSON endpoint; configured API-key requests use the authenticated endpoint. The API result is a validated supplement/fallback when local data is incomplete, and API failures or stalls fall back to the cached local result.
 
 By default, keyless API lookup sends the connection IP address to ipinfo.io first and then falls back to local MMDB data. Set `disable_ipinfo=true` (or pass `--disable-ipinfo true`) to opt out of provider and offline ISP/location metadata entirely: `getIP?isp=true` then returns the IP-only response shape. This feature uses approximate IP-derived location metadata; it does not request browser GPS or collect exact device coordinates.
 
