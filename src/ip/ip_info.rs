@@ -970,9 +970,13 @@ fn encode_query_component(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static IPINFO_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn ipinfo_cooldown_can_be_started_and_cleared() {
+        let _guard = IPINFO_TEST_MUTEX.lock().unwrap();
         IPInfo::clear_ipinfo_cooldown();
         assert!(!IPInfo::ipinfo_in_cooldown());
         IPInfo::start_ipinfo_cooldown();
@@ -983,6 +987,7 @@ mod tests {
 
     #[test]
     fn bogon_success_does_not_start_ipinfo_cooldown() {
+        let _guard = IPINFO_TEST_MUTEX.lock().unwrap();
         IPInfo::clear_ipinfo_cooldown();
         let body = json!({
             "ip": "100.64.0.1",
