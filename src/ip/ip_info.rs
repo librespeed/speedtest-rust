@@ -373,19 +373,24 @@ Connection: close\r\n\r\n",
                         .and_then(Value::as_bool)
                         .unwrap_or(false)
                     {
+                        Self::clear_ipinfo_cooldown();
                         return None;
                     }
                     let ip_info = Self::parse_ipinfo_response(raw_ip, &res_body);
                     if ip_info.has_useful_location_data() {
+                        Self::clear_ipinfo_cooldown();
                         Some(ip_info)
                     } else {
+                        Self::clear_ipinfo_cooldown();
                         None
                     }
                 } else {
+                    Self::start_ipinfo_cooldown();
                     None
                 }
             } else {
                 warn!("Http client error.");
+                Self::start_ipinfo_cooldown();
                 None
             }
         })
@@ -394,8 +399,6 @@ Connection: close\r\n\r\n",
             Ok(result) => {
                 if result.is_some() {
                     Self::clear_ipinfo_cooldown();
-                } else {
-                    Self::start_ipinfo_cooldown();
                 }
                 result
             }
@@ -975,6 +978,19 @@ mod tests {
         IPInfo::start_ipinfo_cooldown();
         assert!(IPInfo::ipinfo_in_cooldown());
         IPInfo::clear_ipinfo_cooldown();
+        assert!(!IPInfo::ipinfo_in_cooldown());
+    }
+
+    #[test]
+    fn bogon_success_does_not_start_ipinfo_cooldown() {
+        IPInfo::clear_ipinfo_cooldown();
+        let body = json!({
+            "ip": "100.64.0.1",
+            "bogon": true
+        });
+        let parsed = IPInfo::parse_ipinfo_response("100.64.0.1", &body);
+
+        assert!(!parsed.has_useful_location_data());
         assert!(!IPInfo::ipinfo_in_cooldown());
     }
 
